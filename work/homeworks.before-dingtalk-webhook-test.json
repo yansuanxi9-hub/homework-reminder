@@ -1,0 +1,24 @@
+[
+  {
+    "id": "1780729694000-c3539d69d1e1b",
+    "platform": "钉钉",
+    "course": "大学英语",
+    "task": "完成 Unit 5 reading report",
+    "deadline": "本周五18:00前",
+    "submitMethod": "学习通",
+    "originalMessage": "* 课程：大学英语\n* 截止：本周五18:00前\n* 提交方式：学习通\n* 内容：完成 Unit 5 reading report",
+    "createdAt": "2026-06-06T07:08:14.000Z",
+    "status": "已完成"
+  },
+  {
+    "id": "1780723610067-9e532c9856e4c",
+    "platform": "钉钉",
+    "course": "美术基础课",
+    "task": "完成并提交色相环作业，共8张图片，包括色相环、明度渐变色阶、色调、调和色、对比色等",
+    "deadline": "本周四前",
+    "submitMethod": "待人工确认",
+    "originalMessage": "各位同学，本周四前完成色相环作业，共8张图片，包括色相环、明度渐变色阶、色调、调和色、对比色等。",
+    "createdAt": "2026-06-06T05:26:50.067Z",
+    "status": "待确认"
+  }
+]

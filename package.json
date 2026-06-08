@@ -1,0 +1,26 @@
+{
+  "name": "multi-platform-homework-reminder",
+  "version": "1.0.0",
+  "description": "多平台作业通知自动整理与提醒系统",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "dingtalk-stream": "node dingtalk-stream.js"
+  },
+  "dependencies": {
+    "dingtalk-stream-sdk-nodejs": "^2.0.4",
+    "dotenv": "^17.4.2",
+    "express": "^4.19.2"
+  },
+  "keywords": [
+    "node",
+    "express",
+    "webhook",
+    "homework",
+    "dingtalk",
+    "qq"
+  ],
+  "author": "",
+  "license": "MIT"
+}
