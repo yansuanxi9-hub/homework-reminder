@@ -98,6 +98,7 @@ function normalizeHomework(homework) {
     course: toProductValue(homework.course || homework.courseName),
     task: toProductValue(homework.task || homework.content),
     deadline: toProductValue(homework.deadline),
+    deadlineAt: homework.deadlineAt || null,
     submitMethod: toProductValue(homework.submitMethod),
     originalMessage: toProductValue(homework.originalMessage || homework.originalFragment),
     status: homework.status || '待完成',
@@ -188,6 +189,14 @@ function chineseNumberToInt(value) {
   return direct[normalized];
 }
 
+function normalizeDeadlineText(text) {
+  return String(text || '')
+    .replace(/[，。；;]/g, ' ')
+    .replace(/提交前|之前|截止|截至|前/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function parseTimeParts(text) {
   const source = String(text || '');
   const colonMatch = source.match(/(\d{1,2})\s*[:：]\s*(\d{1,2})/);
@@ -232,7 +241,8 @@ function buildDeadlineDate(baseDate, text) {
 }
 
 function parseWeekdayDate(text, now) {
-  const match = String(text || '').match(/(本周|下周)?\s*(?:周|星期)([一二三四五六日天])/);
+  const source = String(text || '');
+  const match = source.match(/(本周|这周|下周|下星期)?\s*(?:星期|周)?\s*([一二三四五六日天])/);
   if (!match) return null;
 
   const weekdayMap = {
@@ -246,16 +256,20 @@ function parseWeekdayDate(text, now) {
     天: 7
   };
   const targetWeekday = weekdayMap[match[2]];
+  if (!targetWeekday) return null;
+
   const currentWeekday = now.getDay() === 0 ? 7 : now.getDay();
   const monday = addDays(startOfDay(now), 1 - currentWeekday);
   let offset = targetWeekday - 1;
+  const prefix = match[1] || '';
 
-  if (match[1] === '下周') {
+  if (prefix === '下周' || prefix === '下星期') {
     offset += 7;
   }
 
   let targetDate = addDays(monday, offset);
-  if (!match[1] && targetDate < startOfDay(now)) {
+
+  if (!prefix && targetDate < startOfDay(now)) {
     targetDate = addDays(targetDate, 7);
   }
 
@@ -269,11 +283,7 @@ function parseDeadline(deadline, now = new Date()) {
     return null;
   }
 
-  const normalized = text
-    .replace(/[，。；;]/g, ' ')
-    .replace(/之前|截止|截至|前/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+  const normalized = normalizeDeadlineText(text);
   const isoMatch = normalized.match(/(\d{4})[-/年](\d{1,2})[-/月](\d{1,2})/);
   if (isoMatch) {
     return buildDeadlineDate(new Date(Number(isoMatch[1]), Number(isoMatch[2]) - 1, Number(isoMatch[3])), normalized);
@@ -418,12 +428,14 @@ function getUrgency(homework, now = new Date()) {
 }
 
 function enrichHomework(homework) {
-  const deadlineDate = parseDeadline(homework.deadline);
+  const deadlineDate = homework.deadlineAt ? new Date(homework.deadlineAt) : parseDeadline(homework.deadline);
+  const hasValidDeadline = deadlineDate && !Number.isNaN(deadlineDate.getTime());
   const complexity = inferTaskComplexity(homework);
   const enriched = {
     ...homework,
     ...complexity,
-    deadlineAt: deadlineDate ? deadlineDate.getTime() : null
+    deadlineAt: hasValidDeadline ? deadlineDate.toISOString() : null,
+    deadlineTimestamp: hasValidDeadline ? deadlineDate.getTime() : null
   };
 
   return {
@@ -441,8 +453,8 @@ function compareHomeworks(a, b) {
   const knownB = Boolean(b.deadlineAt);
   if (knownA !== knownB) return knownA ? -1 : 1;
 
-  if (knownA && knownB && a.deadlineAt !== b.deadlineAt) {
-    return a.deadlineAt - b.deadlineAt;
+  if (knownA && knownB && a.deadlineTimestamp !== b.deadlineTimestamp) {
+    return a.deadlineTimestamp - b.deadlineTimestamp;
   }
 
   return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
@@ -454,7 +466,7 @@ function getPriorityHomeworks(homeworks) {
     .filter((homework) => ['overdue', 'today', 'tomorrow', 'soon', 'unknown'].includes(homework.urgency))
     .sort((a, b) => {
       if (a.priority !== b.priority) return a.priority - b.priority;
-      if (a.deadlineAt && b.deadlineAt) return a.deadlineAt - b.deadlineAt;
+      if (a.deadlineAt && b.deadlineAt) return a.deadlineTimestamp - b.deadlineTimestamp;
       if (a.deadlineAt !== b.deadlineAt) return a.deadlineAt ? -1 : 1;
       return 0;
     })
@@ -464,6 +476,43 @@ function getPriorityHomeworks(homeworks) {
 function getTaskSummary(text) {
   const compact = String(text || '').replace(/\s+/g, ' ').trim();
   return compact.length > 42 ? `${compact.slice(0, 42)}...` : compact;
+}
+
+function formatDeadlineAt(value) {
+  if (!value) {
+    return '待确认';
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '待确认';
+  }
+
+  const pad = (number) => String(number).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function logDeadlineParserSamples() {
+  const samples = [
+    '本周四',
+    '下周三晚上八点',
+    '本周五18:00前',
+    '下周一中午12点',
+    '今天晚上8点',
+    '明天中午12点',
+    '6月18号晚上八点前',
+    '2026年6月18日18:00前'
+  ];
+
+  console.table(
+    samples.map((sample) => {
+      const parsed = parseDeadline(sample);
+      return {
+        text: sample,
+        deadlineAt: parsed ? formatDeadlineAt(parsed.toISOString()) : '待确认'
+      };
+    })
+  );
 }
 
 function renderPlanning(homeworks) {
@@ -491,6 +540,7 @@ function renderPlanning(homeworks) {
       </div>
       <div class="planning-meta">
         <span>截止：${escapeHtml(homework.deadline)}</span>
+        <span>换算：${escapeHtml(formatDeadlineAt(homework.deadlineAt))}</span>
         <span class="complexity-badge ${homework.complexity}">${escapeHtml(homework.complexityLabel)}</span>
         <span>${escapeHtml(homework.advice)}</span>
       </div>
@@ -554,6 +604,7 @@ function renderHomeworks() {
         <p class="task-text">${escapeHtml(homework.task)}</p>
         <div class="task-meta">
           <span>截止：${escapeHtml(homework.deadline)}</span>
+          <span>换算：${escapeHtml(formatDeadlineAt(homework.deadlineAt))}</span>
           <span>提交方式：${escapeHtml(homework.submitMethod)}</span>
           <span>接收：${escapeHtml(formatDate(homework.createdAt))}</span>
         </div>
@@ -751,6 +802,7 @@ manualForm.addEventListener('submit', async (event) => {
       course: manualCourse.value,
       task: manualTask.value,
       deadline: manualDeadline.value,
+      deadlineAt: parseDeadline(manualDeadline.value)?.toISOString() || null,
       submitMethod: manualSubmitMethod.value,
       originalMessage: manualOriginalMessage.value,
       status: manualStatus.value
@@ -848,6 +900,7 @@ editForm.addEventListener('submit', async (event) => {
       course: editCourse.value,
       task: editTask.value,
       deadline: editDeadline.value,
+      deadlineAt: parseDeadline(editDeadline.value)?.toISOString() || null,
       submitMethod: editSubmitMethod.value,
       originalMessage: editOriginalMessage.value,
       status: editStatus.value
@@ -888,4 +941,5 @@ reminderToggle.addEventListener('click', () => {
   updateReminderBanner(allHomeworks);
 });
 
+logDeadlineParserSamples();
 loadHomeworks();
