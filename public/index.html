@@ -8,33 +8,44 @@
   </head>
   <body>
     <main class="app-shell">
+      <nav class="topbar" aria-label="页面状态">
+        <div class="brand-mark">HOMEWORK <span></span></div>
+        <div class="topbar-actions">
+          <div class="status-pill">
+            <span class="status-dot"></span>
+            数据已保存
+          </div>
+          <button class="menu-button" type="button" aria-label="菜单">
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+        </div>
+      </nav>
+
       <header class="hero">
         <div>
-          <p class="eyebrow">Homework Notice Center</p>
-          <h1>多平台作业通知自动整理与提醒系统</h1>
-          <p class="subtitle">集中接收多平台作业通知，自动整理为统一学习任务清单。</p>
-        </div>
-        <div class="status-pill">
-          <span class="status-dot"></span>
-          本地数据已保存
+          <p class="eyebrow">HOMEWORK NOTICE CENTER</p>
+          <h1>多平台作业通知整理系统</h1>
+          <p class="subtitle">接收 QQ、钉钉与手动录入的作业通知，自动识别并整理为统一任务清单。</p>
         </div>
       </header>
 
       <section class="stats-grid" aria-label="作业统计">
         <article class="stat-card">
-          <span class="stat-label">全部作业数量</span>
+          <span class="stat-label">全部</span>
           <strong id="totalCount">0</strong>
         </article>
         <article class="stat-card">
-          <span class="stat-label">待完成数量</span>
+          <span class="stat-label">待完成</span>
           <strong id="todoCount">0</strong>
         </article>
         <article class="stat-card">
-          <span class="stat-label">已完成数量</span>
+          <span class="stat-label">已完成</span>
           <strong id="doneCount">0</strong>
         </article>
         <article class="stat-card">
-          <span class="stat-label">待确认数量</span>
+          <span class="stat-label">待确认</span>
           <strong id="confirmCount">0</strong>
         </article>
       </section>
@@ -42,7 +53,7 @@
       <section class="panel list-panel">
         <div class="section-heading list-heading">
           <div>
-            <p class="eyebrow">Unified Tasks</p>
+            <p class="eyebrow">UNIFIED TASKS</p>
             <h2>统一作业列表</h2>
           </div>
           <button class="ghost-button" id="refreshBtn" type="button">刷新</button>
@@ -71,62 +82,69 @@
 
         <div class="toast" id="toast" aria-live="polite"></div>
         <div class="homework-list" id="homeworkList"></div>
-        <div class="empty-state" id="emptyState">暂无符合条件的作业通知。</div>
+        <div class="empty-state" id="emptyState">
+          <strong>当前没有作业通知</strong>
+          <span>当 QQ、钉钉或手动添加作业后，将在这里生成统一任务清单。</span>
+        </div>
 
         <form class="manual-form" id="manualForm">
           <div class="manual-form-header">
             <div>
-              <p class="eyebrow">Manual Entry</p>
+              <p class="eyebrow">MANUAL ENTRY</p>
               <h3>手动添加作业</h3>
             </div>
-            <button class="primary-button" type="submit">添加作业</button>
           </div>
-          <p>如果粘贴的是完整通知，请先点击‘AI识别并填入表单’，确认字段无误后再点击‘添加作业’。</p>
-          <div class="ai-fill-section">
-            <label>
-              <span>粘贴原始通知进行 AI 识别</span>
-              <textarea id="manualAiText" rows="5" placeholder="可以粘贴一整段来自群聊的作业通知"></textarea>
-            </label>
-            <button class="secondary-button" id="manualAiFillBtn" type="button">AI识别并填入表单</button>
+          <div class="manual-layout">
+            <div class="manual-ai-column">
+              <p class="manual-note">如果粘贴的是完整通知，请先点击“AI识别并填入表单”，确认字段无误后再点击“添加作业”。</p>
+              <label>
+                <span>粘贴作业通知进行 AI 识别</span>
+                <textarea id="manualAiText" rows="7" placeholder="可以粘贴一整段来自群聊的作业通知..."></textarea>
+              </label>
+              <button class="primary-button" id="manualAiFillBtn" type="button">AI识别并填入表单</button>
+            </div>
+            <div class="manual-fields-column">
+              <div class="form-grid">
+                <label>
+                  <span>来源平台</span>
+                  <select id="manualPlatform">
+                    <option value="钉钉">钉钉</option>
+                    <option value="QQ">QQ</option>
+                    <option value="手动添加">手动添加</option>
+                  </select>
+                </label>
+                <label>
+                  <span>状态</span>
+                  <select id="manualStatus">
+                    <option value="待完成">待完成</option>
+                    <option value="待确认">待确认</option>
+                    <option value="已完成">已完成</option>
+                  </select>
+                </label>
+                <label>
+                  <span>课程名称</span>
+                  <input id="manualCourse" type="text" placeholder="例如：大学英语" />
+                </label>
+                <label>
+                  <span>截止时间</span>
+                  <input id="manualDeadline" type="text" placeholder="例如：本周五 18:00 前" />
+                </label>
+              </div>
+              <label>
+                <span>提交方式</span>
+                <input id="manualSubmitMethod" type="text" placeholder="例如：学习通" />
+              </label>
+              <label>
+                <span>作业内容</span>
+                <textarea id="manualTask" rows="3" placeholder="请输入作业内容"></textarea>
+              </label>
+              <label>
+                <span>原始通知</span>
+                <textarea id="manualOriginalMessage" rows="3" placeholder="可填写原始通知文本"></textarea>
+              </label>
+              <button class="primary-button manual-submit-button" type="submit">添加作业</button>
+            </div>
           </div>
-          <div class="form-grid">
-            <label>
-              <span>来源平台</span>
-              <select id="manualPlatform">
-                <option value="钉钉">钉钉</option>
-                <option value="QQ">QQ</option>
-                <option value="手动添加">手动添加</option>
-              </select>
-            </label>
-            <label>
-              <span>状态</span>
-              <select id="manualStatus">
-                <option value="待完成">待完成</option>
-                <option value="待确认">待确认</option>
-                <option value="已完成">已完成</option>
-              </select>
-            </label>
-            <label>
-              <span>课程名称</span>
-              <input id="manualCourse" type="text" placeholder="例如：大学英语" />
-            </label>
-            <label>
-              <span>截止时间</span>
-              <input id="manualDeadline" type="text" placeholder="例如：本周五 18:00 前" />
-            </label>
-            <label>
-              <span>提交方式</span>
-              <input id="manualSubmitMethod" type="text" placeholder="例如：学习通" />
-            </label>
-          </div>
-          <label>
-            <span>作业内容</span>
-            <textarea id="manualTask" rows="3" placeholder="请输入作业内容"></textarea>
-          </label>
-          <label>
-            <span>原始通知</span>
-            <textarea id="manualOriginalMessage" rows="3" placeholder="可填写原始通知文本"></textarea>
-          </label>
         </form>
       </section>
 

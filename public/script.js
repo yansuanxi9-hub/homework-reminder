@@ -136,50 +136,39 @@ function renderHomeworks() {
   emptyState.style.display = homeworks.length ? 'none' : 'block';
 
   homeworks.forEach((homework) => {
-    const card = document.createElement('article');
-    card.className = `homework-card ${homework.status === '已完成' ? 'is-done' : ''}`;
-    card.innerHTML = `
-      <div class="card-top">
-        <div>
-          <div class="title-row">
-            <h3 class="course-title">${escapeHtml(homework.course)}</h3>
-            <span class="status-badge ${getStatusClass(homework.status)}">${escapeHtml(homework.status)}</span>
-          </div>
-          <div class="meta">
-            <span>来源平台：${escapeHtml(homework.platform)}</span>
-            <span>接收时间：${escapeHtml(formatDate(homework.createdAt))}</span>
-          </div>
-        </div>
-        <div class="action-group">
-          <button class="secondary-button" type="button" data-action="edit" data-id="${escapeHtml(homework.id)}">编辑</button>
-          ${renderStatusButton(homework)}
-          <button class="delete-button" type="button" data-action="delete" data-id="${escapeHtml(homework.id)}">删除</button>
-        </div>
+    const row = document.createElement('article');
+    row.className = `homework-row ${homework.status === '已完成' ? 'is-done' : ''}`;
+    row.innerHTML = `
+      <div class="task-course">
+        <h3 class="course-title">${escapeHtml(homework.course)}</h3>
+        <span class="source-line">来自：${escapeHtml(homework.platform)}</span>
+        <span class="status-badge ${getStatusClass(homework.status)}">${escapeHtml(homework.status)}</span>
       </div>
-      <div class="field-grid">
-        <div class="field">
-          <span class="field-label">作业内容</span>
-          <span class="field-value">${escapeHtml(homework.task)}</span>
+      <div class="task-main">
+        <p class="task-text">${escapeHtml(homework.task)}</p>
+        <div class="task-meta">
+          <span>截止：${escapeHtml(homework.deadline)}</span>
+          <span>提交方式：${escapeHtml(homework.submitMethod)}</span>
+          <span>接收：${escapeHtml(formatDate(homework.createdAt))}</span>
         </div>
-        <div class="field two-column">
-          <div>
-            <span class="field-label">截止时间</span>
-            <span class="field-value">${escapeHtml(homework.deadline)}</span>
-          </div>
-          <div>
-            <span class="field-label">提交方式</span>
-            <span class="field-value">${escapeHtml(homework.submitMethod)}</span>
-          </div>
-        </div>
-        <div class="field">
-          <span class="field-label">原始通知</span>
-          <span class="field-value original-message">${escapeHtml(homework.originalMessage)}</span>
-        </div>
+        <blockquote class="original-message">${escapeHtml(homework.originalMessage)}</blockquote>
+      </div>
+      <div class="action-group">
+        ${renderStatusButton(homework)}
+        <button class="secondary-button" type="button" data-action="edit" data-id="${escapeHtml(homework.id)}">编辑</button>
+        <button class="delete-button" type="button" data-action="delete" data-id="${escapeHtml(homework.id)}">删除</button>
       </div>
     `;
 
-    homeworkList.appendChild(card);
+    homeworkList.appendChild(row);
   });
+
+  if (homeworks.length) {
+    const footer = document.createElement('div');
+    footer.className = 'list-end';
+    footer.textContent = '没有更多作业了';
+    homeworkList.appendChild(footer);
+  }
 }
 
 function getStatusClass(status) {
@@ -385,7 +374,7 @@ manualAiFillBtn.addEventListener('click', async () => {
     fillManualFormFromAIResult(items[0], messageText);
 
     if (items.length > 1) {
-      showToast('识别到多条任务，已填入第一条，其余任务请通过平台消息接入区添加。');
+      showToast('识别到多条任务，已填入第一条，其余任务可分别手动添加。');
     } else {
       showToast('AI识别结果已填入表单');
     }
