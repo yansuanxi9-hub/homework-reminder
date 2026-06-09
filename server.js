@@ -767,12 +767,21 @@ function createQQValidationSignature(plainToken, eventTs) {
     throw new Error('QQ_BOT_SECRET is required for QQ webhook validation');
   }
 
-  const seed = Buffer.from(String(secret), 'utf8');
+  const secretBuffer = Buffer.from(String(secret), 'utf8');
 
-  if (seed.length !== 32) {
-    throw new Error('QQ_BOT_SECRET must be 32 bytes for QQ webhook validation');
+  if (!secretBuffer.length) {
+    throw new Error('QQ_BOT_SECRET is required for QQ webhook validation');
   }
 
+  const seedParts = [];
+  let seedLength = 0;
+
+  while (seedLength < 32) {
+    seedParts.push(secretBuffer);
+    seedLength += secretBuffer.length;
+  }
+
+  const seed = Buffer.concat(seedParts).subarray(0, 32);
   const pkcs8Prefix = Buffer.from('302e020100300506032b657004220420', 'hex');
   const privateKey = crypto.createPrivateKey({
     key: Buffer.concat([pkcs8Prefix, seed]),
