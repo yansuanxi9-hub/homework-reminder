@@ -9,6 +9,9 @@ const totalCount = document.querySelector('#totalCount');
 const todoCount = document.querySelector('#todoCount');
 const doneCount = document.querySelector('#doneCount');
 const confirmCount = document.querySelector('#confirmCount');
+const planningList = document.querySelector('#planningList');
+const reminderBanner = document.querySelector('#reminderBanner');
+const reminderToggle = document.querySelector('#reminderToggle');
 const editModal = document.querySelector('#editModal');
 const editForm = document.querySelector('#editForm');
 const closeEditBtn = document.querySelector('#closeEditBtn');
@@ -32,6 +35,11 @@ const manualOriginalMessage = document.querySelector('#manualOriginalMessage');
 const manualAiText = document.querySelector('#manualAiText');
 const manualAiFillBtn = document.querySelector('#manualAiFillBtn');
 
+const REMINDER_ENABLED_KEY = 'homeworkReminderEnabled';
+const REMINDER_SEEN_KEY_PREFIX = 'homeworkReminderSeen';
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// 后续如需手机或系统级提醒，可基于 Notification API、Service Worker 和 Push API 扩展。
 let allHomeworks = [];
 
 function formatDate(value) {
@@ -107,8 +115,10 @@ async function loadHomeworks() {
   const response = await fetch('/api/homeworks');
   const homeworks = await response.json();
 
-  allHomeworks = homeworks.map(normalizeHomework);
+  allHomeworks = homeworks.map(normalizeHomework).map(enrichHomework).sort(compareHomeworks);
   renderStats(allHomeworks);
+  renderPlanning(allHomeworks);
+  updateReminderBanner(allHomeworks);
   renderHomeworks();
 }
 
@@ -129,6 +139,399 @@ function getFilteredHomeworks() {
   });
 }
 
+function getTodayKey() {
+  const now = new Date();
+  return `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+}
+
+function startOfDay(date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function isSameDay(a, b) {
+  return startOfDay(a).getTime() === startOfDay(b).getTime();
+}
+
+function addDays(date, days) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function chineseNumberToInt(value) {
+  if (!value) return NaN;
+  const normalized = String(value).replace(/两/g, '二');
+  const direct = {
+    零: 0,
+    一: 1,
+    二: 2,
+    三: 3,
+    四: 4,
+    五: 5,
+    六: 6,
+    七: 7,
+    八: 8,
+    九: 9,
+    十: 10
+  };
+
+  if (/^\d+$/.test(normalized)) {
+    return Number(normalized);
+  }
+
+  if (normalized === '十') return 10;
+  if (normalized.includes('十')) {
+    const [tens, ones] = normalized.split('十');
+    return (direct[tens] || 1) * 10 + (direct[ones] || 0);
+  }
+
+  return direct[normalized];
+}
+
+function parseTimeParts(text) {
+  const source = String(text || '');
+  const colonMatch = source.match(/(\d{1,2})\s*[:：]\s*(\d{1,2})/);
+  let hour;
+  let minute = 0;
+
+  if (colonMatch) {
+    hour = Number(colonMatch[1]);
+    minute = Number(colonMatch[2]);
+  } else {
+    const pointMatch = source.match(/([零一二三四五六七八九十两\d]{1,3})\s*点(?:\s*([零一二三四五六七八九十两\d]{1,3})\s*分?)?/);
+    if (pointMatch) {
+      hour = chineseNumberToInt(pointMatch[1]);
+      minute = pointMatch[2] ? chineseNumberToInt(pointMatch[2]) : 0;
+    }
+  }
+
+  if (Number.isNaN(hour) || hour === undefined) {
+    return { hour: 23, minute: 59, explicit: false };
+  }
+
+  if (/(下午|晚上|傍晚)/.test(source) && hour < 12) {
+    hour += 12;
+  }
+
+  if (/中午/.test(source) && hour < 11) {
+    hour += 12;
+  }
+
+  if (hour > 23 || minute > 59) {
+    return { hour: 23, minute: 59, explicit: false };
+  }
+
+  return { hour, minute, explicit: true };
+}
+
+function buildDeadlineDate(baseDate, text) {
+  const { hour, minute } = parseTimeParts(text);
+  const date = new Date(baseDate);
+  date.setHours(hour, minute, 0, 0);
+  return date;
+}
+
+function parseWeekdayDate(text, now) {
+  const match = String(text || '').match(/(本周|下周)?\s*(?:周|星期)([一二三四五六日天])/);
+  if (!match) return null;
+
+  const weekdayMap = {
+    一: 1,
+    二: 2,
+    三: 3,
+    四: 4,
+    五: 5,
+    六: 6,
+    日: 7,
+    天: 7
+  };
+  const targetWeekday = weekdayMap[match[2]];
+  const currentWeekday = now.getDay() === 0 ? 7 : now.getDay();
+  const monday = addDays(startOfDay(now), 1 - currentWeekday);
+  let offset = targetWeekday - 1;
+
+  if (match[1] === '下周') {
+    offset += 7;
+  }
+
+  let targetDate = addDays(monday, offset);
+  if (!match[1] && targetDate < startOfDay(now)) {
+    targetDate = addDays(targetDate, 7);
+  }
+
+  return targetDate;
+}
+
+function parseDeadline(deadline, now = new Date()) {
+  const text = String(deadline || '').trim();
+
+  if (!text || text === '待人工确认' || text === '未识别') {
+    return null;
+  }
+
+  const normalized = text
+    .replace(/[，。；;]/g, ' ')
+    .replace(/之前|截止|截至|前/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const isoMatch = normalized.match(/(\d{4})[-/年](\d{1,2})[-/月](\d{1,2})/);
+  if (isoMatch) {
+    return buildDeadlineDate(new Date(Number(isoMatch[1]), Number(isoMatch[2]) - 1, Number(isoMatch[3])), normalized);
+  }
+
+  const slashMatch = normalized.match(/(^|[^\d])(\d{1,2})\/(\d{1,2})(?!\d)/);
+  if (slashMatch) {
+    return buildDeadlineDate(new Date(now.getFullYear(), Number(slashMatch[2]) - 1, Number(slashMatch[3])), normalized);
+  }
+
+  const monthMatch = normalized.match(/(\d{1,2})\s*月\s*(\d{1,2})\s*[日号]?/);
+  if (monthMatch) {
+    return buildDeadlineDate(new Date(now.getFullYear(), Number(monthMatch[1]) - 1, Number(monthMatch[2])), normalized);
+  }
+
+  if (/今天/.test(normalized)) {
+    return buildDeadlineDate(startOfDay(now), normalized);
+  }
+
+  if (/明天/.test(normalized)) {
+    return buildDeadlineDate(addDays(startOfDay(now), 1), normalized);
+  }
+
+  if (/后天/.test(normalized)) {
+    return buildDeadlineDate(addDays(startOfDay(now), 2), normalized);
+  }
+
+  const weekdayDate = parseWeekdayDate(normalized, now);
+  if (weekdayDate) {
+    return buildDeadlineDate(weekdayDate, normalized);
+  }
+
+  if (parseTimeParts(normalized).explicit) {
+    return buildDeadlineDate(startOfDay(now), normalized);
+  }
+
+  return null;
+}
+
+function inferTaskComplexity(homework) {
+  const text = `${homework.course} ${homework.task} ${homework.originalMessage}`;
+  const complexPattern = /论文|PPT|汇报|展示|演讲|调研|查资料|项目|网站|视频剪辑|小组作业|策划书|计划书|作品集/i;
+  const mediumPattern = /练习题|翻译|阅读报告|reading report|实验报告|手写|整理笔记|案例分析|小组讨论/i;
+  const simplePattern = /背诵|预习|阅读|完成练习|拍照|提交截图|填表|签到|观看视频/i;
+
+  if (complexPattern.test(text)) {
+    return {
+      complexity: 'complex',
+      complexityLabel: '复杂',
+      reminderLeadDays: 4
+    };
+  }
+
+  if (mediumPattern.test(text)) {
+    return {
+      complexity: 'medium',
+      complexityLabel: '中等',
+      reminderLeadDays: 2
+    };
+  }
+
+  if (simplePattern.test(text)) {
+    return {
+      complexity: 'simple',
+      complexityLabel: '简单',
+      reminderLeadDays: 1
+    };
+  }
+
+  return {
+    complexity: 'medium',
+    complexityLabel: '中等',
+    reminderLeadDays: 2
+  };
+}
+
+function getUrgency(homework, now = new Date()) {
+  if (homework.status === '已完成') {
+    return {
+      urgency: 'done',
+      urgencyLabel: ''
+    };
+  }
+
+  if (!homework.deadlineAt) {
+    return {
+      urgency: 'unknown',
+      urgencyLabel: '待确认时间',
+      priority: 5,
+      advice: '截止时间不明确，建议手动确认。'
+    };
+  }
+
+  const deadline = new Date(homework.deadlineAt);
+  const diff = deadline.getTime() - now.getTime();
+
+  if (diff < 0) {
+    return {
+      urgency: 'overdue',
+      urgencyLabel: '已逾期',
+      priority: 1,
+      advice: '这项作业已经超过截止时间，请优先处理。'
+    };
+  }
+
+  if (isSameDay(deadline, now)) {
+    return {
+      urgency: 'today',
+      urgencyLabel: '今天截止',
+      priority: 2,
+      advice: '今天需要完成，建议现在安排时间处理。'
+    };
+  }
+
+  if (isSameDay(deadline, addDays(now, 1))) {
+    return {
+      urgency: 'tomorrow',
+      urgencyLabel: '明天截止',
+      priority: 3,
+      advice: '明天截止，建议今天先完成主要部分。'
+    };
+  }
+
+  if (diff <= homework.reminderLeadDays * DAY_MS) {
+    return {
+      urgency: 'soon',
+      urgencyLabel: '建议开始',
+      priority: 4,
+      advice:
+        homework.complexity === 'complex'
+          ? '这项任务需要写作、查资料或制作内容，建议提前启动。'
+          : '这项任务已进入提醒期，建议预留时间完成。'
+    };
+  }
+
+  return {
+    urgency: 'normal',
+    urgencyLabel: '按计划',
+    priority: 6,
+    advice: '按当前节奏推进即可。'
+  };
+}
+
+function enrichHomework(homework) {
+  const deadlineDate = parseDeadline(homework.deadline);
+  const complexity = inferTaskComplexity(homework);
+  const enriched = {
+    ...homework,
+    ...complexity,
+    deadlineAt: deadlineDate ? deadlineDate.getTime() : null
+  };
+
+  return {
+    ...enriched,
+    ...getUrgency(enriched)
+  };
+}
+
+function compareHomeworks(a, b) {
+  const doneA = a.status === '已完成';
+  const doneB = b.status === '已完成';
+  if (doneA !== doneB) return doneA ? 1 : -1;
+
+  const knownA = Boolean(a.deadlineAt);
+  const knownB = Boolean(b.deadlineAt);
+  if (knownA !== knownB) return knownA ? -1 : 1;
+
+  if (knownA && knownB && a.deadlineAt !== b.deadlineAt) {
+    return a.deadlineAt - b.deadlineAt;
+  }
+
+  return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+}
+
+function getPriorityHomeworks(homeworks) {
+  return homeworks
+    .filter((homework) => homework.status !== '已完成')
+    .filter((homework) => ['overdue', 'today', 'tomorrow', 'soon', 'unknown'].includes(homework.urgency))
+    .sort((a, b) => {
+      if (a.priority !== b.priority) return a.priority - b.priority;
+      if (a.deadlineAt && b.deadlineAt) return a.deadlineAt - b.deadlineAt;
+      if (a.deadlineAt !== b.deadlineAt) return a.deadlineAt ? -1 : 1;
+      return 0;
+    })
+    .slice(0, 3);
+}
+
+function getTaskSummary(text) {
+  const compact = String(text || '').replace(/\s+/g, ' ').trim();
+  return compact.length > 42 ? `${compact.slice(0, 42)}...` : compact;
+}
+
+function renderPlanning(homeworks) {
+  const priorityHomeworks = getPriorityHomeworks(homeworks);
+
+  planningList.innerHTML = '';
+
+  if (!priorityHomeworks.length) {
+    planningList.innerHTML = `
+      <div class="planning-empty">
+        <strong>当前没有紧急任务</strong>
+        <span>继续保持，新的 QQ/钉钉作业通知会自动进入这里。</span>
+      </div>
+    `;
+    return;
+  }
+
+  priorityHomeworks.forEach((homework) => {
+    const item = document.createElement('article');
+    item.className = `planning-item urgency-${homework.urgency}`;
+    item.innerHTML = `
+      <div>
+        <h3>${escapeHtml(homework.course)}</h3>
+        <p>${escapeHtml(getTaskSummary(homework.task))}</p>
+      </div>
+      <div class="planning-meta">
+        <span>截止：${escapeHtml(homework.deadline)}</span>
+        <span class="complexity-badge ${homework.complexity}">${escapeHtml(homework.complexityLabel)}</span>
+        <span>${escapeHtml(homework.advice)}</span>
+      </div>
+    `;
+    planningList.appendChild(item);
+  });
+}
+
+function isReminderEnabled() {
+  return window.localStorage.getItem(REMINDER_ENABLED_KEY) === 'true';
+}
+
+function updateReminderButton() {
+  reminderToggle.textContent = isReminderEnabled() ? '站内提醒已开启' : '开启站内提醒';
+}
+
+function updateReminderBanner(homeworks) {
+  updateReminderButton();
+  reminderBanner.classList.remove('is-visible');
+  reminderBanner.textContent = '';
+
+  if (!isReminderEnabled()) {
+    return;
+  }
+
+  const todayKey = `${REMINDER_SEEN_KEY_PREFIX}:${getTodayKey()}`;
+  if (window.localStorage.getItem(todayKey) === 'true') {
+    return;
+  }
+
+  const priorityHomeworks = getPriorityHomeworks(homeworks);
+  if (!priorityHomeworks.length) {
+    return;
+  }
+
+  const top = priorityHomeworks[0];
+  reminderBanner.textContent = `${top.urgencyLabel}：${top.course} - ${getTaskSummary(top.task)}。${top.advice}`;
+  reminderBanner.classList.add('is-visible');
+  window.localStorage.setItem(todayKey, 'true');
+}
+
 function renderHomeworks() {
   const homeworks = getFilteredHomeworks();
 
@@ -137,12 +540,15 @@ function renderHomeworks() {
 
   homeworks.forEach((homework) => {
     const row = document.createElement('article');
-    row.className = `homework-row ${homework.status === '已完成' ? 'is-done' : ''}`;
+    row.className = `homework-row urgency-${homework.urgency} ${homework.status === '已完成' ? 'is-done' : ''}`;
     row.innerHTML = `
       <div class="task-course">
         <h3 class="course-title">${escapeHtml(homework.course)}</h3>
         <span class="source-line">来自：${escapeHtml(homework.platform)}</span>
-        <span class="status-badge ${getStatusClass(homework.status)}">${escapeHtml(homework.status)}</span>
+        <div class="badge-row">
+          <span class="status-badge ${getStatusClass(homework.status)}">${escapeHtml(homework.status)}</span>
+          ${renderUrgencyBadge(homework)}
+        </div>
       </div>
       <div class="task-main">
         <p class="task-text">${escapeHtml(homework.task)}</p>
@@ -175,6 +581,14 @@ function getStatusClass(status) {
   if (status === '已完成') return 'done';
   if (status === '待确认') return 'confirm';
   return 'todo';
+}
+
+function renderUrgencyBadge(homework) {
+  if (!homework.urgencyLabel || homework.status === '已完成' || homework.urgency === 'normal') {
+    return '';
+  }
+
+  return `<span class="urgency-badge ${homework.urgency}">${escapeHtml(homework.urgencyLabel)}</span>`;
 }
 
 function renderStatusButton(homework) {
@@ -458,5 +872,20 @@ editModal.addEventListener('click', (event) => {
 platformFilter.addEventListener('change', renderHomeworks);
 statusFilter.addEventListener('change', renderHomeworks);
 refreshBtn.addEventListener('click', loadHomeworks);
+reminderToggle.addEventListener('click', () => {
+  const nextEnabled = !isReminderEnabled();
+  window.localStorage.setItem(REMINDER_ENABLED_KEY, String(nextEnabled));
+
+  if (nextEnabled) {
+    window.localStorage.removeItem(`${REMINDER_SEEN_KEY_PREFIX}:${getTodayKey()}`);
+    showToast('站内提醒已开启');
+  } else {
+    reminderBanner.classList.remove('is-visible');
+    reminderBanner.textContent = '';
+    showToast('站内提醒已关闭');
+  }
+
+  updateReminderBanner(allHomeworks);
+});
 
 loadHomeworks();
