@@ -131,6 +131,14 @@ function getMessageText(payload) {
   return normalizeIncomingMessage(payload);
 }
 
+function getQQBotConfig() {
+  return {
+    appId: process.env.QQ_BOT_APP_ID || '',
+    token: process.env.QQ_BOT_TOKEN || '',
+    secret: process.env.QQ_BOT_SECRET || ''
+  };
+}
+
 function sanitizeHeaders(headers) {
   const safeHeaders = {};
   const hiddenKeys = new Set(['authorization', 'cookie', 'x-api-key']);
@@ -753,6 +761,132 @@ function getDeepSeekConfig() {
   };
 }
 
+function createQQValidationSignature(plainToken, eventTs) {
+  const { secret } = getQQBotConfig();
+
+  if (!secret) {
+    throw new Error('QQ_BOT_SECRET is required for QQ webhook validation');
+  }
+
+  let normalizedSecret = String(secret);
+  while (normalizedSecret.length < 32) {
+    normalizedSecret += normalizedSecret;
+  }
+
+  const seed = Buffer.from(normalizedSecret.slice(0, 32), 'utf8');
+  const pkcs8Prefix = Buffer.from('302e020100300506032b657004220420', 'hex');
+  const privateKey = crypto.createPrivateKey({
+    key: Buffer.concat([pkcs8Prefix, seed]),
+    format: 'der',
+    type: 'pkcs8'
+  });
+
+  return crypto
+    .sign(null, Buffer.from(`${eventTs}${plainToken}`, 'utf8'), privateKey)
+    .toString('hex');
+}
+
+function getQQEventData(payload) {
+  return payload && payload.d && typeof payload.d === 'object' ? payload.d : {};
+}
+
+function extractQQMessageText(payload) {
+  const data = getQQEventData(payload);
+  const candidates = [
+    data.content,
+    data.text,
+    data.message,
+    data.msg,
+    data.raw_message,
+    data.markdown && data.markdown.content,
+    data.message && data.message.content,
+    data.message && data.message.text,
+    data.text && data.text.content,
+    data.event && data.event.message && data.event.message.content,
+    data.event && data.event.message && data.event.message.text
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate.replace(/<@!?\d+>/g, '').trim();
+    }
+  }
+
+  const normalized = normalizeIncomingMessage(data, 'qq');
+
+  if (normalized && normalized !== JSON.stringify(data)) {
+    return normalized;
+  }
+
+  return '';
+}
+
+async function handleQQWebhook(req, res) {
+  const payload = req.body || {};
+  console.log('Received webhook: qq');
+  console.log('QQ webhook body:', simplifyBody(payload));
+
+  try {
+    if (payload.op === 13) {
+      const data = getQQEventData(payload);
+      const plainToken = data.plain_token;
+      const eventTs = data.event_ts;
+
+      if (!plainToken || !eventTs) {
+        console.log('QQ webhook validation ignored: missing plain_token or event_ts');
+        return res.status(200).json({ success: true });
+      }
+
+      return res.status(200).json({
+        plain_token: plainToken,
+        signature: createQQValidationSignature(plainToken, eventTs)
+      });
+    }
+
+    const isLocalTestPayload =
+      payload.op === undefined &&
+      (typeof payload.messageText === 'string' ||
+        typeof payload.content === 'string' ||
+        typeof payload.text === 'string' ||
+        typeof payload.message === 'string');
+
+    if (payload.op !== 0 && !isLocalTestPayload) {
+      console.log(`QQ webhook ignored: unsupported op ${payload.op}`);
+      return res.status(200).json({ success: true, message: 'unsupported qq op ignored' });
+    }
+
+    const messageText = payload.op === 0
+      ? extractQQMessageText(payload)
+      : normalizeIncomingMessage(req, 'qq');
+
+    if (!messageText || !String(messageText).trim()) {
+      console.log('QQ webhook ignored: empty or unknown message structure');
+      return res.status(200).json({
+        success: true,
+        message: 'empty message ignored'
+      });
+    }
+
+    console.log(`Calling AI parser with message: ${getMessagePreview(messageText)}`);
+
+    const newHomeworks = await parseAndSaveHomework('QQ', messageText);
+
+    return res.status(200).json({
+      success: true,
+      message: 'QQ 消息已接入，并完成 AI 结构化识别',
+      homeworks: newHomeworks,
+      homework: newHomeworks[0] || null
+    });
+  } catch (error) {
+    console.error(`QQ webhook handled with fallback response: ${error.message}`);
+
+    return res.status(200).json({
+      success: true,
+      message: 'qq webhook received'
+    });
+  }
+}
+
 async function parseAndSaveHomework(platform, messageText) {
   const aiResults = normalizeAIResults(await callAIParser(messageText, platform), messageText);
   const newHomeworks = aiResults.map((item) =>
@@ -955,8 +1089,12 @@ app.post('/webhook/dingtalk', async (req, res) => {
   await handleDingtalkWebhook(req, res);
 });
 
+app.get('/webhook/qq', (req, res) => {
+  res.status(200).send('qq webhook ok');
+});
+
 app.post('/webhook/qq', async (req, res) => {
-  await receivePlatformMessage('QQ', req, res, 'qq');
+  await handleQQWebhook(req, res);
 });
 
 if (require.main === module) {
