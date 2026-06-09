@@ -12,11 +12,14 @@ const DATA_FILE = path.join(DATA_DIR, 'homeworks.json');
 const QQ_ACCESS_TOKEN_URL = 'https://bots.qq.com/app/getAppAccessToken';
 const QQ_API_BASE_URL = 'https://api.sgroup.qq.com';
 const QQ_SUCCESS_REPLY = '已转发到作业网站，请刷新网页查看。';
+const QQ_EVENT_TTL_MS = 10 * 60 * 1000;
+const QQ_EVENT_MAX_SIZE = 1000;
 
 let qqAccessTokenCache = {
   token: '',
   expiresAt: 0
 };
+const processedQqEvents = new Map();
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -806,6 +809,51 @@ function getQQEventData(payload) {
   return payload && payload.d && typeof payload.d === 'object' ? payload.d : {};
 }
 
+function createHash(value) {
+  return crypto.createHash('sha256').update(String(value || '')).digest('hex');
+}
+
+function getQQEventId(payload) {
+  const data = getQQEventData(payload);
+  const eventId =
+    payload.id ||
+    data.id ||
+    data.msg_id ||
+    data.event_id ||
+    data.message_id ||
+    '';
+
+  if (eventId) {
+    return String(eventId);
+  }
+
+  return `hash:${createHash(JSON.stringify(data))}`;
+}
+
+function pruneProcessedQQEvents(now = Date.now()) {
+  for (const [eventId, handledAt] of processedQqEvents) {
+    if (now - handledAt > QQ_EVENT_TTL_MS || processedQqEvents.size > QQ_EVENT_MAX_SIZE) {
+      processedQqEvents.delete(eventId);
+    }
+
+    if (processedQqEvents.size <= QQ_EVENT_MAX_SIZE) {
+      break;
+    }
+  }
+}
+
+function markQQEventProcessing(eventId) {
+  const now = Date.now();
+  pruneProcessedQQEvents(now);
+
+  if (processedQqEvents.has(eventId)) {
+    return true;
+  }
+
+  processedQqEvents.set(eventId, now);
+  return false;
+}
+
 function extractQQMessageText(payload) {
   const data = getQQEventData(payload);
   const candidates = [
@@ -958,6 +1006,18 @@ async function tryReplyQQSuccess(payload) {
   }
 }
 
+async function processQQDispatchEvent(payload, messageText, eventId) {
+  try {
+    console.log(`Calling AI parser with message: ${getMessagePreview(messageText)}`);
+
+    await parseAndSaveHomework('QQ', messageText);
+    await tryReplyQQSuccess(payload);
+    console.log(`QQ async processing finished: ${eventId}`);
+  } catch (error) {
+    console.error(`QQ async processing failed: ${error.message}`);
+  }
+}
+
 async function handleQQWebhook(req, res) {
   const payload = req.body || {};
   console.log('Received webhook: qq');
@@ -1004,13 +1064,29 @@ async function handleQQWebhook(req, res) {
       });
     }
 
+    if (payload.op === 0) {
+      const eventId = getQQEventId(payload);
+      const duplicate = markQQEventProcessing(eventId);
+
+      console.log(`qq event id: ${eventId}`);
+      console.log(`duplicate: ${duplicate}`);
+
+      if (duplicate) {
+        console.log('async processing started: false');
+        return res.status(200).json({ op: 12 });
+      }
+
+      console.log('async processing started: true');
+      setImmediate(() => {
+        processQQDispatchEvent(payload, messageText, eventId);
+      });
+
+      return res.status(200).json({ op: 12 });
+    }
+
     console.log(`Calling AI parser with message: ${getMessagePreview(messageText)}`);
 
     const newHomeworks = await parseAndSaveHomework('QQ', messageText);
-
-    if (payload.op === 0) {
-      await tryReplyQQSuccess(payload);
-    }
 
     return res.status(200).json({
       success: true,
