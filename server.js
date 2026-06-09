@@ -134,7 +134,6 @@ function getMessageText(payload) {
 function getQQBotConfig() {
   return {
     appId: process.env.QQ_BOT_APP_ID || '',
-    token: process.env.QQ_BOT_TOKEN || '',
     secret: process.env.QQ_BOT_SECRET || ''
   };
 }
@@ -768,12 +767,12 @@ function createQQValidationSignature(plainToken, eventTs) {
     throw new Error('QQ_BOT_SECRET is required for QQ webhook validation');
   }
 
-  let normalizedSecret = String(secret);
-  while (normalizedSecret.length < 32) {
-    normalizedSecret += normalizedSecret;
+  const seed = Buffer.from(String(secret), 'utf8');
+
+  if (seed.length !== 32) {
+    throw new Error('QQ_BOT_SECRET must be 32 bytes for QQ webhook validation');
   }
 
-  const seed = Buffer.from(normalizedSecret.slice(0, 32), 'utf8');
   const pkcs8Prefix = Buffer.from('302e020100300506032b657004220420', 'hex');
   const privateKey = crypto.createPrivateKey({
     key: Buffer.concat([pkcs8Prefix, seed]),
