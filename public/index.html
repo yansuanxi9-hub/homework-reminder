@@ -189,33 +189,6 @@
         </div>
       </div>
 
-      <section class="panel intake-panel">
-        <div class="section-heading">
-          <p class="eyebrow">Webhook Intake</p>
-          <h2>平台消息接入测试</h2>
-        </div>
-        <p class="notice">真实部署时，该请求由钉钉或 QQ 机器人自动发送到对应 webhook。</p>
-
-        <div class="intake-grid">
-          <form class="message-box" data-platform="dingtalk">
-            <div class="message-box-header">
-              <h3>钉钉通知</h3>
-              <span class="platform-tag dingtalk">POST /webhook/dingtalk</span>
-            </div>
-            <textarea name="message" rows="5">各位同学，本周四前完成色相环作业，共8张图片，包括色相环、明度渐变色阶、色调、调和色、对比色等。</textarea>
-            <button type="submit">发送钉钉通知</button>
-          </form>
-
-          <form class="message-box" data-platform="qq">
-            <div class="message-box-header">
-              <h3>QQ通知</h3>
-              <span class="platform-tag qq">POST /webhook/qq</span>
-            </div>
-            <textarea name="message" rows="5">请大家周四10:30到实验楼308智慧教室参加公开课，主题和期末作业相关。</textarea>
-            <button type="submit">发送QQ通知</button>
-          </form>
-        </div>
-      </section>
     </main>
 
     <script src="/script.js"></script>

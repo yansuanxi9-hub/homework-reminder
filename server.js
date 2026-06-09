@@ -9,6 +9,14 @@ const PORT = process.env.PORT || 3000;
 
 const DATA_DIR = path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'homeworks.json');
+const QQ_ACCESS_TOKEN_URL = 'https://bots.qq.com/app/getAppAccessToken';
+const QQ_API_BASE_URL = 'https://api.sgroup.qq.com';
+const QQ_SUCCESS_REPLY = '已转发到作业网站，请刷新网页查看。';
+
+let qqAccessTokenCache = {
+  token: '',
+  expiresAt: 0
+};
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -829,6 +837,127 @@ function extractQQMessageText(payload) {
   return '';
 }
 
+function getQQReplyTarget(payload) {
+  const data = getQQEventData(payload);
+  const author = data.author && typeof data.author === 'object' ? data.author : {};
+  const user = data.user && typeof data.user === 'object' ? data.user : {};
+  const message = data.message && typeof data.message === 'object' ? data.message : {};
+  const openid =
+    data.openid ||
+    data.user_openid ||
+    data.author_openid ||
+    author.user_openid ||
+    author.openid ||
+    user.openid ||
+    user.user_openid ||
+    message.openid ||
+    message.user_openid ||
+    '';
+  const msgId =
+    data.msg_id ||
+    data.message_id ||
+    data.id ||
+    message.msg_id ||
+    message.message_id ||
+    message.id ||
+    '';
+  const eventId = payload.id || data.event_id || data.id || '';
+
+  return {
+    openid,
+    msgId,
+    eventId
+  };
+}
+
+async function getQQAccessToken() {
+  const { appId, secret } = getQQBotConfig();
+  const now = Date.now();
+
+  if (qqAccessTokenCache.token && qqAccessTokenCache.expiresAt > now + 60000) {
+    return qqAccessTokenCache.token;
+  }
+
+  if (!appId || !secret) {
+    throw new Error('QQ_BOT_APP_ID and QQ_BOT_SECRET are required for QQ reply');
+  }
+
+  const response = await fetch(QQ_ACCESS_TOKEN_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      appId,
+      clientSecret: secret
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`get access token failed HTTP ${response.status}: ${errorText.slice(0, 200)}`);
+  }
+
+  const result = await response.json();
+  const token = result.access_token || result.accessToken;
+  const expiresIn = Number(result.expires_in || result.expiresIn || 7200);
+
+  if (!token) {
+    throw new Error('get access token failed: empty token');
+  }
+
+  qqAccessTokenCache = {
+    token,
+    expiresAt: now + Math.max(expiresIn - 60, 60) * 1000
+  };
+
+  return token;
+}
+
+async function replyQQPrivateMessage(payload, content) {
+  const { openid, msgId, eventId } = getQQReplyTarget(payload);
+
+  if (!openid) {
+    throw new Error('missing openid for QQ private reply');
+  }
+
+  const accessToken = await getQQAccessToken();
+  const body = {
+    content,
+    msg_type: 0,
+    msg_seq: 1
+  };
+
+  if (msgId) {
+    body.msg_id = msgId;
+  } else if (eventId) {
+    body.event_id = eventId;
+  }
+
+  const response = await fetch(`${QQ_API_BASE_URL}/v2/users/${encodeURIComponent(openid)}/messages`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `QQBot ${accessToken}`
+    },
+    body: JSON.stringify(body)
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`send private message failed HTTP ${response.status}: ${errorText.slice(0, 200)}`);
+  }
+}
+
+async function tryReplyQQSuccess(payload) {
+  try {
+    await replyQQPrivateMessage(payload, QQ_SUCCESS_REPLY);
+    console.log('QQ reply success');
+  } catch (error) {
+    console.error(`QQ reply failed: ${error.message}`);
+  }
+}
+
 async function handleQQWebhook(req, res) {
   const payload = req.body || {};
   console.log('Received webhook: qq');
@@ -878,6 +1007,10 @@ async function handleQQWebhook(req, res) {
     console.log(`Calling AI parser with message: ${getMessagePreview(messageText)}`);
 
     const newHomeworks = await parseAndSaveHomework('QQ', messageText);
+
+    if (payload.op === 0) {
+      await tryReplyQQSuccess(payload);
+    }
 
     return res.status(200).json({
       success: true,
