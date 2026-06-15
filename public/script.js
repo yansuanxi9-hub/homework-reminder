@@ -326,10 +326,18 @@ function parseDeadline(deadline, now = new Date()) {
 function inferTaskComplexity(homework) {
   const text = `${homework.course} ${homework.task} ${homework.originalMessage}`;
   const complexPattern = /论文|PPT|汇报|展示|演讲|调研|查资料|项目|网站|视频剪辑|小组作业|策划书|计划书|作品集/i;
-  const mediumPattern = /练习题|翻译|阅读报告|reading report|实验报告|手写|整理笔记|案例分析|小组讨论/i;
+  const artComplexPattern = /作品|绘画|色相环|明度|色阶|色调|调和色|对比色|图片|8张|八张|作品集/i;
+  const quantityPattern = /[三四五六七八九十\d]+\s*张|若干张|共计/i;
+  const mediumPattern = /练习题|翻译|阅读报告|reading report|实验报告|手写|整理笔记|案例分析|小组讨论|报告/i;
+  const mediumToComplexPattern = /小组|查资料|展示|PPT/i;
   const simplePattern = /背诵|预习|阅读|完成练习|拍照|提交截图|填表|签到|观看视频/i;
 
-  if (complexPattern.test(text)) {
+  if (
+    complexPattern.test(text) ||
+    artComplexPattern.test(text) ||
+    quantityPattern.test(text) ||
+    (mediumPattern.test(text) && mediumToComplexPattern.test(text))
+  ) {
     return {
       complexity: 'complex',
       complexityLabel: '复杂',
@@ -384,7 +392,7 @@ function getUrgency(homework, now = new Date()) {
     return {
       urgency: 'overdue',
       urgencyLabel: '已逾期',
-      priority: 1,
+      priority: 100,
       advice: '这项作业已经超过截止时间，请优先处理。'
     };
   }
@@ -393,7 +401,7 @@ function getUrgency(homework, now = new Date()) {
     return {
       urgency: 'today',
       urgencyLabel: '今天截止',
-      priority: 2,
+      priority: 90,
       advice: '今天需要完成，建议现在安排时间处理。'
     };
   }
@@ -402,29 +410,55 @@ function getUrgency(homework, now = new Date()) {
     return {
       urgency: 'tomorrow',
       urgencyLabel: '明天截止',
-      priority: 3,
+      priority: 80,
       advice: '明天截止，建议今天先完成主要部分。'
     };
   }
 
   if (diff <= homework.reminderLeadDays * DAY_MS) {
+    const scoreMap = {
+      complex: 70,
+      medium: 60,
+      simple: 50
+    };
+
     return {
       urgency: 'soon',
       urgencyLabel: '建议开始',
-      priority: 4,
-      advice:
-        homework.complexity === 'complex'
-          ? '这项任务需要写作、查资料或制作内容，建议提前启动。'
-          : '这项任务已进入提醒期，建议预留时间完成。'
+      priority: scoreMap[homework.complexity] || 60,
+      advice: getPlanningAdvice(homework, 'soon')
     };
   }
 
   return {
     urgency: 'normal',
     urgencyLabel: '按计划',
-    priority: 6,
-    advice: '按当前节奏推进即可。'
+    priority: 30,
+    advice: getPlanningAdvice(homework, 'normal')
   };
+}
+
+function isArtComplexHomework(homework) {
+  const text = `${homework.course} ${homework.task} ${homework.originalMessage}`;
+  return /作品|绘画|色相环|明度|色阶|色调|调和色|对比色|图片|8张|八张|作品集/i.test(text);
+}
+
+function getPlanningAdvice(homework, urgency) {
+  if (urgency === 'soon' && homework.complexity === 'complex') {
+    return isArtComplexHomework(homework)
+      ? '这项作业包含多项作品提交，建议提前开始准备。'
+      : '这项任务内容较多，建议提前开始安排时间。';
+  }
+
+  if (homework.status === '待确认' && homework.deadlineAt) {
+    return '这项任务仍需确认部分信息，但已进入规划范围。';
+  }
+
+  if (urgency === 'soon') {
+    return '这项任务已进入提醒期，建议预留时间完成。';
+  }
+
+  return '按当前节奏推进即可。';
 }
 
 function enrichHomework(homework) {
@@ -463,9 +497,16 @@ function compareHomeworks(a, b) {
 function getPriorityHomeworks(homeworks) {
   return homeworks
     .filter((homework) => homework.status !== '已完成')
-    .filter((homework) => ['overdue', 'today', 'tomorrow', 'soon', 'unknown'].includes(homework.urgency))
+    .filter((homework) => homework.deadlineAt || homework.status === '待确认')
+    .map((homework) => ({
+      ...homework,
+      planningScore:
+        homework.urgency === 'unknown' && homework.status === '待确认'
+          ? 40
+          : homework.priority || 30
+    }))
     .sort((a, b) => {
-      if (a.priority !== b.priority) return a.priority - b.priority;
+      if (a.planningScore !== b.planningScore) return b.planningScore - a.planningScore;
       if (a.deadlineAt && b.deadlineAt) return a.deadlineTimestamp - b.deadlineTimestamp;
       if (a.deadlineAt !== b.deadlineAt) return a.deadlineAt ? -1 : 1;
       return 0;
@@ -598,6 +639,7 @@ function renderHomeworks() {
         <div class="badge-row">
           <span class="status-badge ${getStatusClass(homework.status)}">${escapeHtml(homework.status)}</span>
           ${renderUrgencyBadge(homework)}
+          <span class="complexity-badge ${homework.complexity}">${escapeHtml(homework.complexityLabel)}</span>
         </div>
       </div>
       <div class="task-main">
