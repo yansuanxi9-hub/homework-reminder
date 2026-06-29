@@ -1,28 +1,32 @@
 # 多平台作业通知自动整理与提醒系统
 
-## 项目背景
+## 项目简介
 
-大学课程作业通知经常分散在钉钉、QQ群、学习通等不同平台，学生需要反复切换应用查看消息，容易遗漏作业内容、截止时间和提交方式。本项目希望通过 AI 自动识别和统一作业列表，把分散的作业通知整理成清晰的学习任务清单，帮助学生更稳定地管理课程任务。
+这是一个基于 Node.js + Express + DeepSeek API 的作业通知整理系统，可以接收网页手动输入、钉钉机器人回调、QQ 机器人消息，将自然语言作业通知识别为结构化作业任务，并在网页中统一管理和提醒。
 
-## 项目目标
+项目已经部署到 Render，老师可以优先通过线上地址直接查看效果，也可以下载项目后在本地运行。
 
-实现一个本地可运行的网页系统，支持作业通知录入、AI 自动识别、作业列表管理和任务状态维护。老师下载项目后，可以通过 `npm install` 和 `npm start` 启动系统，在浏览器中完成主要功能体验。
+## 在线访问地址
+
+https://homework-reminder-wm0m.onrender.com/
 
 ## 已实现功能
 
-- 作业统计：全部、待完成、已完成、待确认
-- 统一作业列表
 - 手动添加作业
-- AI 识别并填入表单
-- 平台消息接入测试
-- DeepSeek API 自动识别作业通知
-- 编辑作业
-- 删除作业
-- 标记完成 / 恢复待完成
-- 按来源平台筛选
-- 按状态筛选
-- 本地 JSON 数据保存
-- `.env` 环境变量配置
+- AI 识别作业通知
+- DeepSeek API 接入
+- 统一作业列表
+- 作业状态管理
+- 编辑 / 删除 / 标记完成
+- 来源平台筛选
+- 钉钉 webhook 接入
+- QQ webhook 接入
+- QQ 消息处理成功后自动回复
+- QQ 重复事件去重
+- deadlineAt 截止时间换算
+- 任务规划与提醒模块
+- 极简 UI 页面
+- Render 线上部署
 
 ## 技术栈
 
@@ -33,8 +37,11 @@
 - JavaScript
 - DeepSeek API
 - JSON 文件本地存储
+- Render 部署
 
 ## 本地运行方式
+
+请先确认电脑已经安装 Node.js。
 
 1. 安装依赖：
 
@@ -42,207 +49,120 @@
 npm install
 ```
 
-2. 创建环境变量文件：
-
-```bash
-cp .env.example .env
-```
-
-3. 在 `.env` 中填写 `DEEPSEEK_API_KEY`。如果暂时不填写，系统仍会使用本地备用识别逻辑运行。
-
-4. 启动项目：
+2. 启动项目：
 
 ```bash
 npm start
 ```
 
-5. 浏览器打开：
+3. 浏览器打开：
 
 ```text
 http://localhost:3000
 ```
 
-## Render 部署方式
+也可以直接双击启动脚本：
 
-1. 将项目代码提交到 GitHub 仓库。
-
-2. 登录 [Render](https://render.com)，创建新的 Web Service，并选择该 GitHub 仓库。
-
-3. Render 服务配置建议如下：
-
-```text
-Environment: Node
-Build Command: npm install
-Start Command: npm start
-```
-
-4. 在 Render 的 Environment Variables 中配置环境变量：
-
-```text
-DEEPSEEK_API_KEY=你的 DeepSeek API Key
-DEEPSEEK_BASE_URL=https://api.deepseek.com
-DEEPSEEK_MODEL=deepseek-chat
-```
-
-如果暂时不配置 `DEEPSEEK_API_KEY`，系统仍可启动，并使用本地备用识别逻辑。
-
-5. 部署完成后，打开 Render 分配的公网地址即可访问系统。
-
-注意：当前版本使用 `data/homeworks.json` 作为本地 JSON 存储。Render 免费实例的文件系统不适合作为长期稳定数据库，服务重建后数据可能丢失。期末作业演示可以正常使用，后续正式版本建议替换为数据库。
+- macOS：`start-mac.command`
+- Windows：`start-windows.bat`
 
 ## 环境变量说明
 
+如果需要完整测试 AI 识别和机器人接入，请复制环境变量模板：
+
+```bash
+cp .env.example .env
+```
+
+然后根据需要填写：
+
 ```text
-DEEPSEEK_API_KEY=DeepSeek API Key
-DEEPSEEK_BASE_URL=https://api.deepseek.com
-DEEPSEEK_MODEL=deepseek-chat
-DINGTALK_TOKEN=钉钉机器人 Token
-DINGTALK_AES_KEY=钉钉机器人 EncodingAESKey
-DINGTALK_OWNER_KEY=钉钉企业或应用标识
-DINGTALK_CLIENT_ID=钉钉应用 Client ID
-DINGTALK_CLIENT_SECRET=钉钉应用 Client Secret
+DEEPSEEK_API_KEY
+DEEPSEEK_BASE_URL
+DEEPSEEK_MODEL
+QQ_BOT_APP_ID
+QQ_BOT_SECRET
+DINGTALK_CLIENT_ID
+DINGTALK_CLIENT_SECRET
 ```
 
 说明：
 
-- `DEEPSEEK_API_KEY`：DeepSeek API 密钥，不能写进代码或提交到仓库。
-- `DEEPSEEK_BASE_URL`：DeepSeek API 地址，默认使用 `https://api.deepseek.com`。
-- `DEEPSEEK_MODEL`：使用的模型名称，默认使用 `deepseek-chat`。
-- `DINGTALK_TOKEN`：钉钉 HTTP 回调加解密使用的 Token。
-- `DINGTALK_AES_KEY`：钉钉 HTTP 回调加解密使用的 EncodingAESKey。
-- `DINGTALK_OWNER_KEY`：钉钉回调加密消息中的企业或应用标识。
-- `DINGTALK_CLIENT_ID`：钉钉 Stream 模式使用的应用 Client ID，通常对应应用的 AppKey。
-- `DINGTALK_CLIENT_SECRET`：钉钉 Stream 模式使用的应用 Client Secret，通常对应应用的 AppSecret。
+- 为了安全，交付包中不包含真实 `.env` 文件。
+- 真实 DeepSeek 密钥、QQ 机器人密钥、钉钉应用密钥都不应该写进代码或提交到压缩包。
+- 老师如果只查看页面和代码，可以直接使用线上 Render 地址。
+- 如果要本地完整测试 AI 和机器人，需要自行配置环境变量。
+- 没有配置 DeepSeek 密钥时，项目仍可启动，但会使用本地备用识别逻辑。
 
-## 项目结构说明
+## 项目结构
 
 ```text
-.
-├── data/
-│   └── homeworks.json       # 本地作业数据文件
+homework-reminder/
+├── README.md
+├── package.json
+├── package-lock.json
+├── server.js
+├── dingtalk-stream.js
+├── .env.example
+├── .gitignore
+├── start-mac.command
+├── start-windows.bat
+├── 老师请先看我.txt
+├── final_agent_software_development_transcript.html
 ├── public/
-│   ├── index.html           # 前端页面结构
-│   ├── script.js            # 前端交互逻辑
-│   └── style.css            # 页面样式
-├── .env.example             # 环境变量示例
-├── .gitignore               # 忽略 .env、node_modules 等文件
-├── package.json             # 项目依赖和启动脚本
-├── package-lock.json        # 依赖版本锁定文件
-├── README.md                # 项目说明文档
-├── dingtalk-stream.js       # 钉钉 Stream 模式接入脚本
-└── server.js                # Express 后端服务和接口
+│   ├── index.html
+│   ├── style.css
+│   └── script.js
+├── data/
+│   └── homeworks.json
+└── assets/
+    └── 教学展示截图文件
 ```
 
-## 钉钉接入说明
-
-项目保留了 HTTP webhook 测试接口：
+## 主要接口
 
 ```text
-GET /webhook/dingtalk
-POST /webhook/dingtalk
+GET  /api/homeworks              获取作业列表
+POST /api/homeworks              手动新增作业
+PATCH /api/homeworks/:id         编辑作业
+PATCH /api/homeworks/:id/status  修改作业状态
+DELETE /api/homeworks/:id        删除作业
+POST /api/ai-test                测试 AI 识别
+GET  /api/deepseek-status        查看 DeepSeek 配置状态
+GET  /webhook/dingtalk           钉钉 webhook 浏览器测试
+POST /webhook/dingtalk           钉钉 webhook 消息入口
+GET  /webhook/qq                 QQ webhook 浏览器测试
+POST /webhook/qq                 QQ webhook 消息入口
 ```
 
-该接口主要用于本地页面测试、ngrok 测试以及普通 HTTP 消息接入验证。由于钉钉 HTTP 模式需要公网回调地址、Token、EncodingAESKey 和加密校验，真实机器人接入推荐使用钉钉 Stream 模式。
+## 钉钉与 QQ 接入说明
 
-Stream 模式不需要注册公网回调地址。配置 `.env` 后，单独启动 Stream 客户端：
+项目保留钉钉和 QQ 的 webhook 接口。真实机器人接入需要在平台后台配置公网地址和对应密钥。
+
+Render 部署后的示例地址：
+
+```text
+https://homework-reminder-wm0m.onrender.com/webhook/dingtalk
+https://homework-reminder-wm0m.onrender.com/webhook/qq
+```
+
+钉钉 Stream 模式可以单独运行：
 
 ```bash
 npm run dingtalk-stream
 ```
 
-如果需要同时使用网页系统和钉钉 Stream 机器人，建议开启两个终端：
+## 交付说明
 
-```bash
-npm start
-```
+老师可以优先通过 Render 在线地址检查功能：
 
-```bash
-npm run dingtalk-stream
-```
+https://homework-reminder-wm0m.onrender.com/
 
-钉钉机器人通过 Stream 模式收到消息后，会调用项目现有的 AI 识别流程，并继续保存到 `data/homeworks.json`。
+如果需要本地运行，请按 README 步骤执行 `npm install` 和 `npm start`，或者双击对应系统的一键启动脚本。
 
-## 接口说明
+## 注意事项
 
-### GET `/api/homeworks`
-
-获取全部作业列表。
-
-### POST `/api/homeworks`
-
-手动新增一条作业。
-
-请求体示例：
-
-```json
-{
-  "platform": "钉钉",
-  "course": "大学英语",
-  "task": "完成 Unit 5 reading report",
-  "deadline": "本周五18:00前",
-  "submitMethod": "学习通",
-  "originalMessage": "课程：大学英语...",
-  "status": "待完成"
-}
-```
-
-### PUT `/api/homeworks/:id`
-
-编辑指定作业。项目同时保留 `PATCH /api/homeworks/:id` 作为前端当前使用的更新接口。
-
-### DELETE `/api/homeworks/:id`
-
-删除指定作业。
-
-### PATCH `/api/homeworks/:id/status`
-
-更新作业状态，支持 `待完成`、`已完成`、`待确认`。
-
-### POST `/webhook/dingtalk`
-
-模拟接收钉钉平台推送的作业通知，并调用 AI 识别流程整理为作业。
-
-### POST `/webhook/qq`
-
-模拟接收 QQ 平台推送的作业通知，并调用 AI 识别流程整理为作业。
-
-### GET `/api/deepseek-status`
-
-查看 DeepSeek 配置状态。接口只返回是否配置密钥，不会返回真实 API Key。
-
-返回示例：
-
-```json
-{
-  "hasKey": true,
-  "baseUrl": "https://api.deepseek.com",
-  "model": "deepseek-chat"
-}
-```
-
-### POST `/api/ai-test`
-
-测试 AI 作业识别能力。
-
-请求体示例：
-
-```json
-{
-  "platform": "dingtalk",
-  "messageText": "* 课程：大学英语\n* 截止：本周五18:00前\n* 提交方式：学习通\n* 内容：完成 Unit 5 reading report"
-}
-```
-
-## 当前版本说明
-
-当前版本已经实现本地可运行的 AI 作业整理系统。系统可以通过手动录入、AI 填表、钉钉/QQ 消息测试入口添加作业，并支持列表管理、状态维护、筛选和本地保存。钉钉 HTTP 模式作为测试接口保留，真实钉钉机器人接入推荐使用 Stream 模式。
-
-## 后续优化方向
-
-- 接入真实钉钉 / QQ 机器人
-- 未来扩展飞书、学习通等平台
-- 部署到公网
-- 增加日历提醒
-- 增加用户登录
-- 使用数据库替代本地 JSON
-- 增加移动端适配
+- 压缩包不包含 `.env`。
+- 压缩包不包含 `node_modules/`。
+- 压缩包不包含任何真实 API Key、Token、AppSecret 或机器人密钥。
+- 当前版本使用 `data/homeworks.json` 保存本地数据。Render 免费实例的文件系统不适合作为长期数据库，后续正式版本可以升级为数据库存储。

@@ -1,0 +1,26 @@
+老师您好：
+这是我的《多平台作业通知自动整理与提醒系统》期末项目。
+
+推荐检查方式：
+
+1. 直接打开线上地址：
+   https://homework-reminder-wm0m.onrender.com/
+
+2. 如果需要查看本地项目：
+   请先安装 Node.js，然后双击 start-mac.command（Mac）或 start-windows.bat（Windows）。
+   如果无法双击，请在终端中运行：
+   npm install
+   npm start
+
+3. 浏览器打开：
+   http://localhost:3000
+
+说明：
+由于 API Key、QQ 机器人密钥、钉钉密钥属于敏感信息，交付包中不会包含真实 .env 文件。线上版本已经配置好环境变量，可以直接查看项目效果。
+Qq机器人目前只能做到在单独对话框，如果需要在群聊中使用还需要审核上架
+钉钉机器人需要企业内部配置，非本企业不可使用，为了开发机器人，所以自己建了一个企业单独测试
+
+Qq机器人与钉钉机器人运用的原理均为：在对应的开发者平台建立机器人，完成对应配置后，回调地址填写线上地址，机器人即可将信息发送至网站
+
+与ai的对话记录：file:///Users/yangyanxi/Documents/Codex/2026-06-06/node-js-express-1-2-post/final_agent_software_development_transcript.html
+我的github存档：https://github.com/yansuanxi9-hub/homework-reminder

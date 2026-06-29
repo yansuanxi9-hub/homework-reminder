@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>利用 Agent 进行创意性软件开发：AI 期末作业全过程记录</title>
+  <style>
+    :root { --bg:#F7F7F5; --panel:#fff; --ink:#1f1f1f; --muted:#737373; --line:#deded8; --user:#e9e9e6; --code:#f0f0ed; --terminal:#151515; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:var(--bg); color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif; line-height:1.75; }
+    .page { max-width:960px; margin:0 auto; padding:56px 24px 80px; }
+    header.hero { padding:40px 0 46px; border-bottom:1px solid var(--line); }
+    header.hero p.kicker { margin:0 0 12px; color:var(--muted); font-size:13px; letter-spacing:.18em; text-transform:uppercase; }
+    h1 { margin:0; font-size:38px; line-height:1.22; letter-spacing:0; }
+    .subtitle { margin:14px 0 0; color:var(--muted); font-size:16px; }
+    .stage { padding:44px 0; border-bottom:1px solid var(--line); }
+    .stage h2 { margin:0 0 28px; font-size:24px; line-height:1.35; }
+    .message { display:flex; flex-direction:column; max-width:78%; margin:18px 0; padding:18px 20px; border:1px solid var(--line); border-radius:18px; }
+    .message.user { margin-left:auto; background:var(--user); border-color:#d9d9d5; border-bottom-right-radius:6px; }
+    .message.assistant { margin-right:auto; background:var(--panel); border-bottom-left-radius:6px; }
+    .message.codex::before { content:"Codex"; display:inline-flex; width:max-content; margin-bottom:8px; color:var(--muted); font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+    .message p { margin:0 0 12px; }
+    .message p:last-child { margin-bottom:0; }
+    ul { margin:8px 0 0 20px; padding:0; }
+    pre { overflow:auto; margin:14px 0; padding:16px; border-radius:12px; background:var(--code); font-size:13px; line-height:1.6; }
+    pre code { font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace; }
+    pre.terminal { background:var(--terminal); color:#f4f4f4; }
+    code { font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace; font-size:.92em; }
+    .screenshot { margin:26px 0; padding:14px; border:1px solid var(--line); border-radius:16px; background:var(--panel); }
+    .screenshot img { display:block; max-width:100%; width:100%; border-radius:12px; border:1px solid #ddd; background:#f1f1ef; }
+    .screenshot figcaption { margin-top:10px; color:var(--muted); font-size:13px; }
+    .summary { margin-top:48px; padding:24px; border:1px solid var(--line); border-radius:18px; background:#fff; color:#424242; }
+    @media (max-width: 720px) { .page{padding:34px 16px 56px;} h1{font-size:30px;} .message{max-width:94%;} }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <p class="kicker">Creative Software Development With Agent</p>
+      <h1>利用 Agent 进行创意性软件开发</h1>
+      <p class="subtitle">AI 期末作业全过程记录</p>
+    </header>
+
+<section class="stage">
+  <h2>阶段一：项目雏形——从“作业通知太分散”开始</h2>
+  <article class="message user">
+<p>我想做一个课堂项目：基于多平台和机器人的全自动作业提醒系统。现实里老师会在钉钉、QQ、学习通、PPT最后一页、群消息里布置作业，学生很容易漏看。我想让 QQ、微信、钉钉里的作业通知集合到一个智能体里，再提醒我。</p>
+</article>
+<article class="message assistant">
+<p>这个方向是成立的，但要先把它拆成一个能做出来的版本。核心不是“一开始接入所有平台”，而是先完成一个闭环：</p>
+    <pre><code>平台消息
+↓
+后端接收
+↓
+AI 识别课程、作业、截止时间、提交方式
+↓
+统一作业列表
+↓
+提醒 / 管理</code></pre>
+    <p>第一版建议先做成：一个本地可运行的作业提醒网页，保留钉钉和另一个平台的接入口，后面再接真实机器人。</p>
+</article>
+</section>
+
+<section class="stage">
+  <h2>阶段二：需求形成——从测试页面变成可交付系统</h2>
+  <article class="message user">
+<p>我用扣子做了一个提醒助手，但是它还需要手动粘贴。我想做的是自动实现聊天记录导入。现在确认了用 QQ 元宝总结和钉钉 AI 助理，这个消息要怎么自动进入提醒助手呢？</p>
+</article>
+<article class="message assistant">
+<p>如果只是复制粘贴，它不能算“自动接入”。老师大概率会看你有没有完整流程。我们应该把需求整理成正式系统：</p>
+    <pre><code>项目名称：多平台作业通知自动整理与提醒系统
+
+核心功能：
+
+1. 作业统计
+2. 统一作业列表
+3. 手动添加作业
+4. AI 识别并填入表单
+5. 平台消息接入测试
+6. 编辑 / 删除 / 标记完成
+7. 按来源平台和状态筛选
+8. 本地 JSON 数据保存
+9. 预留钉钉 / QQ webhook 接口
+
+ <p>先把网页本体做成正式系统，再做平台接入和 API。</p></code></pre>
+</article>
+<article class="message user">
+<p>我要做的不是仅限于课堂展示的！我要做的是期末作业实际能交给老师的实际能运行的网页！</p>
+</article>
+<article class="message assistant">
+<p>那就不要只做“演示页面”。最小可交付版本应该满足：老师能打开、能运行、能看懂、能操作，并且数据刷新后不丢。真实平台接入可以作为第二阶段，但网页本身必须先完整。</p>
+</article>
+</section>
+
+<section class="stage">
+  <h2>阶段三：Node.js + Express 项目搭建</h2>
+  <article class="message user">
+<p>我已经下好 Codex 了，接下来怎么办？</p>
+</article>
+<article class="message assistant">
+<p>先让 Codex 创建一个 Node.js + Express 项目。项目结构可以这样：</p>
+    <pre><code>node-js-express-1-2-post/
+├── package.json
+├── server.js
+├── public/
+│   ├── index.html
+│   ├── style.css
+│   └── script.js
+└── data/
+    └── homeworks.json</code></pre>
+    <p>运行方式：</p>
+    <pre><code>cd /Users/yangyanxi/Documents/Codex/2026-06-06/node-js-express-1-2-post
+npm install
+npm start</code></pre>
+    <p>然后浏览器打开：</p>
+    <pre><code>http://localhost:3000</code></pre>
+</article>
+<article class="message user">
+<p>终端报错了：npm error enoent Could not read package.json。</p>
+</article>
+<article class="message assistant">
+<p>这是因为你现在不在项目目录里。终端当前路径是 <code>/Users/yangyanxi</code>，所以找不到 <code>package.json</code>。先进入项目文件夹，再运行：</p>
+    <pre><code>cd /Users/yangyanxi/Documents/Codex/2026-06-06/node-js-express-1-2-post
+npm start</code></pre>
+</article>
+</section>
+
+<section class="stage">
+  <h2>阶段四：页面迭代——从“测试界面”到“正式系统”</h2>
+  <article class="message user">
+<p>我感觉这个识别效果还是很一般！不是能直接用的程序，而是给自己看的流程测试界面。我的 20 刀是喂狗了吗！</p>
+</article>
+<article class="message assistant">
+<p>现在的问题不是钱白花了，而是页面还没有“产品化”。先让 Codex 改成正式系统：顶部标题、作业统计卡片、统一列表、手动添加、编辑、删除、标记完成、筛选功能。平台测试区放到底部，不能抢主功能。</p>
+    <pre><code>请把当前项目改成一个可以作为期末作业提交的正式网页系统，而不是课堂演示或测试页面。
+
+要求：
+
+1. 首页要像正式系统
+2. 显示全部、待完成、已完成、待确认数量
+3. 统一作业列表
+4. 每条作业支持编辑、删除、标记完成
+5. 按平台和状态筛选
+6. 测试区放到底部
+7. 数据保存到本地 JSON</code></pre>
+</article>
+<article class="message user">
+<p>现在界面没问题了！后面我要怎么办呢？</p>
+</article>
+<article class="message assistant">
+<p>接下来先别继续美化，先测试功能闭环：新增作业、刷新保存、编辑、删除、标记完成、筛选、平台测试入口。只要这些稳定，项目就从“网页半成品”变成“能交的系统”。</p>
+</article>
+</section>
+
+<section class="stage">
+  <h2>阶段五：DeepSeek API 接入——让系统真正会识别作业通知</h2>
+  <article class="message user">
+<p>怎么还是识别不了呢？要不你教我怎么把 DeepSeek 这种 API 接入这个吧！</p>
+</article>
+<article class="message assistant">
+<p>可以。你现在的问题是本地规则太死板，遇到自然语言就会变成“待人工确认”。接 DeepSeek 后流程会变成：</p>
+    <pre><code>平台消息 / 原始通知
+↓
+POST 到后端
+↓
+调用 DeepSeek API
+↓
+返回结构化 JSON
+↓
+填入课程、作业、截止时间、提交方式</code></pre>
+    <p>先让 Codex 做 API 接入准备：</p>
+    <pre><code>npm install dotenv</code></pre>
+    <p>新增 <code>.env.example</code>：</p>
+    <pre><code>DEEPSEEK_API_KEY=[已隐藏]
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_MODEL=deepseek-chat</code></pre>
+    <p>真实 密钥 放进 <code>.env</code>，不要写进代码，也不要提交给老师。</p>
+</article>
+<article class="message user">
+<p>我充值了十块钱！这个 密钥 应该就可以用了吧！</p>
+</article>
+<article class="message assistant">
+<p>对，充值后理论上可以用了。关键是确认三件事：第一，你有完整 密钥；第二，填进项目根目录的 <code>.env</code>；第三，重启项目。启动时如果看到 <code>injected env (3) from .env</code>，说明环境变量已经读到了。</p>
+</article>
+<article class="message user">
+<p>打开状态页是这样：<code>{"hasKey":true,"baseUrl":"https://api.deepseek.com","model":"deepseek-chat"}</code></p>
+</article>
+<article class="message assistant">
+<p>这说明 <code>.env</code> 没问题，DeepSeek Key 已经读到了。接下来要看按钮有没有真正请求 <code>/api/ai-test</code>，以及后端有没有输出 <code>Using DeepSeek API parser</code>。</p>
+</article>
+</section>
+
+<section class="stage">
+  <h2>阶段六：AI识别交互修正——从“直接添加”改成“先识别再确认”</h2>
+  <article class="message user">
+<p>不行啊，怎么就 AI 识别不了了！</p>
+</article>
+<article class="message assistant">
+<p>先检查状态页。如果 <code>hasKey:true</code>，就不是 key 的问题，而是手动添加区的按钮流程。正确逻辑应该是：</p>
+    <pre><code>粘贴原始通知
+↓
+点击“AI识别并填入表单”
+↓
+检查下方字段
+↓
+点击“添加作业”保存</code></pre>
+</article>
+<article class="message user">
+<p>我才发现我没有点那个“AI识别并填入表单”！点的是直接提交作业，才没有识别。现在我点了 AI 识别，已经完全没问题了，能正确识别！</p>
+</article>
+<article class="message assistant">
+<p>太好了！这不是 bug，是操作顺序容易混。建议补一句提示，避免老师也直接点“添加作业”：</p>
+    <pre><code>如果粘贴的是完整通知，请先点击“AI识别并填入表单”，
+确认字段无误后再点击“添加作业”。</code></pre>
+</article>
+</section>
+
+<section class="stage">
+  <h2>阶段七：README 与期末提交准备</h2>
+  <article class="message user">
+<p>让 Codex 生成 README，然后做交付检查。我要怎么和 Codex 说呢？</p>
+</article>
+<article class="message assistant">
+<p>直接让 Codex 生成完整 README，并做提交前检查。重点包括：项目背景、目标、已实现功能、技术栈、本地运行方式、环境变量说明、接口说明、后续优化方向。</p>
+    <pre><code>请帮我完成当前项目的期末提交准备。
+
+第一部分：生成 README.md
+第二部分：做期末提交前检查
+
+检查：
+
+1. npm install 是否正常
+2. npm start 是否能启动
+3. .env.example 是否完整
+4. .gitignore 是否包含 .env 和 node_modules
+5. README 是否准确
+6. DeepSeek 密钥 是否没有写死在代码里
+7. 页面功能是否没有被破坏</code></pre>
+</article>
+<article class="message user">
+<p>接下来准备打包，这个要交什么呢？</p>
+</article>
+<article class="message assistant">
+<p>交整个项目文件夹的压缩包，不要只交 README。最终压缩包建议包含：</p>
+    <pre><code>node-js-express-1-2-post/
+├── README.md
+├── package.json
+├── package-lock.json
+├── server.js
+├── .env.example
+├── .gitignore
+├── public/
+│   ├── index.html
+│   ├── style.css
+│   └── script.js
+└── data/
+    └── homeworks.json</code></pre>
+    <p>不要交：</p>
+    <pre><code>.env
+node_modules/</code></pre>
+    <p><code>.env</code> 里有 密钥，不能交；<code>node_modules</code> 太大，老师运行 <code>npm install</code> 会重新生成。</p>
+</article>
+</section>
+
+<section class="stage">
+  <h2>阶段八：ngrok 公网地址——让钉钉能访问本地项目</h2>
+  <article class="message user">
+<p>现在已经有雏形了，那么接下来要怎么把钉钉和飞书接入绑定这个作业网页呢？</p>
+</article>
+<article class="message assistant">
+<p>先分清楚：你的网页现在是 <code>http://localhost:3000</code>，只有你自己的电脑能访问。钉钉在外部，访问不到 localhost。真实接入要先得到 HTTPS 公网地址，最简单用 ngrok：</p>
+    <pre><code>ngrok http 3000</code></pre>
+    <p>成功后会得到：</p>
+    <pre><code>https://xxxx.ngrok-free.dev</code></pre>
+    <p>钉钉回调地址就是：</p>
+    <pre><code>https://xxxx.ngrok-free.dev/webhook/dingtalk</code></pre>
+</article>
+<article class="message user">
+<p>输入 <code>ngrok http 3000</code> 之后报错：<code>command not found: ngrok</code>。</p>
+</article>
+<article class="message assistant">
+<p>说明电脑里还没安装 ngrok。你可以从官网下载 macOS 版本，或者用 Homebrew 安装。下载版可以在 Downloads 目录里运行：</p>
+    <pre><code>cd ~/Downloads
+./ngrok config add-authtoken [已隐藏]
+./ngrok http 3000</code></pre>
+</article>
+<article class="message user">
+<p>这样对吗？终端显示 Forwarding 到 <code>https://curve-follicle-squire.ngrok-free.dev</code>。</p>
+</article>
+<article class="message assistant">
+<p>对！这就是成功了。现在你的本地项目已经有公网地址了。先测试：</p>
+    <pre><code>https://curve-follicle-squire.ngrok-free.dev
+https://curve-follicle-squire.ngrok-free.dev/api/deepseek-status</code></pre>
+    <p>如果都正常，钉钉回调地址就是：</p>
+    <pre><code>https://curve-follicle-squire.ngrok-free.dev/webhook/dingtalk</code></pre>
+</article>
+</section>
+
+<section class="stage">
+  <h2>阶段九：钉钉接入调试——从群机器人到开放平台应用机器人</h2>
+  <article class="message user">
+<p>我已经在钉钉建好群了，后面该怎么办？</p>
+</article>
+<article class="message assistant">
+<p>先找群里的机器人入口。但要注意：群里的“自定义机器人”通常是发送型机器人，作用是“你的系统往钉钉群发消息”；你要的是“钉钉群消息进入你的网页”，所以需要应用机器人或机器人接收消息能力。</p>
+</article>
+<article class="message user">
+<p>我找到自定义机器人了，它写着“使用钉钉机器人 API，可以将任何你需要的服务消息推送到钉钉”。</p>
+</article>
+<article class="message assistant">
+<p>这说明它不是我们要的接收型机器人。不要走这个。去钉钉开放平台创建企业内部应用，然后添加“机器人”能力，配置消息接收模式。</p>
+</article>
+<article class="message user">
+<p>我进入开发者后台了，但是点应用开发后显示没有权限。</p>
+</article>
+<article class="message assistant">
+<p>这说明当前组织没有给你开发者权限。最省事的路线是创建自己的测试组织，这样你就是管理员，可以创建内部应用。</p>
+</article>
+<article class="message user">
+<p>我已经创建好了测试组织！现在进入钉钉应用创建页面。</p>
+</article>
+<article class="message assistant">
+<p>创建企业内部应用，名称填“作业提醒助手”，描述填“用于接收钉钉群内作业通知，并自动整理到作业提醒网页”。创建后进入应用能力，添加“机器人”。</p>
+</article>
+</section>
+
+<section class="stage">
+  <h2>阶段十：HTTP 模式卡点与 Stream 模式选择</h2>
+  <article class="message user">
+<p>我把消息接收模式改成 HTTP 模式，填了 ngrok 地址，但是发布一直提示“消息接收地址校验失败”。浏览器打开回调地址能看到 <code>dingtalk webhook ok</code>，ngrok 也显示 200 OK。</p>
+</article>
+<article class="message assistant">
+<p>这说明公网地址是通的，不是 ngrok 坏了。问题在于钉钉 HTTP 模式不是普通返回 <code>dingtalk webhook ok</code> 就能通过，它需要加密校验和特定响应格式。你已经完成了：</p>
+    <pre><code>本地网页 ✅
+DeepSeek AI 识别 ✅
+ngrok 公网地址 ✅
+钉钉能访问 /webhook/dingtalk ✅
+钉钉 HTTP 加密校验 ❌</code></pre>
+</article>
+<article class="message user">
+<p>我找不到 token、aes_key、owner_key 怎么办？</p>
+</article>
+<article class="message assistant">
+<p>找不到不是你眼瞎。钉钉 HTTP 模式确实复杂，可能藏在事件订阅或加密配置里。更现实的做法是改用钉钉推荐的 Stream 模式。Stream 模式不需要公网回调地址，可以绕开 ngrok、HTTPS 证书和 HTTP 加密校验。</p>
+    <pre><code>钉钉机器人：Stream 模式
+Node 项目：运行 Stream 连接脚本
+收到钉钉消息 → 调用 DeepSeek → 写入 data/homeworks.json → 网页显示</code></pre>
+</article>
+<article class="message assistant">
+<p>下一步可以让 Codex 新增 <code>dingtalk-stream.js</code>：</p>
+    <pre><code>1. 保留 /webhook/dingtalk 作为本地测试接口
+2. 新增 dingtalk-stream.js
+3. 从 .env 读取 DINGTALK_CLIENT_ID 和 DINGTALK_CLIENT_SECRET
+4. 收到钉钉消息后提取文本
+5. 调用 callAIParser(messageText, "dingtalk")
+6. 保存到 data/homeworks.json
+7. package.json 增加 "dingtalk": "node dingtalk-stream.js"</code></pre>
+</article>
+</section>
+
+<section class="stage">
+  <h2>阶段十一：部署讨论——ngrok、Render 与 GitHub</h2>
+  <article class="message user">
+<p>ngrok 免费地址明天可能会变。如果不关的话免费地址还会变吗？要不我自己注册一个钉钉可以访问的公网？</p>
+</article>
+<article class="message assistant">
+<p>如果今晚不关 ngrok 和 <code>npm start</code>，当前地址一般会继续可用。但电脑睡眠、断网、重启、关掉 ngrok 后，地址可能会变。长期方案有两类：</p>
+    <pre><code>临时公网隧道：ngrok / Cloudflare Tunnel
+正式部署：Render / Railway / 云服务器</code></pre>
+</article>
+<article class="message user">
+<p>正式部署要怎么做？</p>
+</article>
+<article class="message assistant">
+<p>正式部署就是把你现在电脑里跑的 <code>npm start</code> 放到云平台上跑。推荐 Render，因为你的项目是 Node.js + Express。流程是：</p>
+    <pre><code>1. 把项目上传 GitHub
+2. Render 新建 Web Service
+3. 连接 GitHub 仓库
+4. Build Command: npm install
+5. Start Command: npm start
+6. 在 Render 环境变量里填 DEEPSEEK_API_KEY
+7. 得到稳定公网网址</code></pre>
+    <p>但要注意：你现在用 <code>data/homeworks.json</code> 保存数据，部署到云平台后，免费服务的本地文件不适合长期稳定保存。第一版可以作为功能演示，后续再升级数据库。</p>
+</article>
+<article class="message user">
+<p>我回来了！开始干活！</p>
+</article>
+<article class="message assistant">
+<p>今天先做部署前检查，不要新增复杂功能：</p>
+    <pre><code>1. server.js 是否使用 process.env.PORT || 3000
+2. package.json 是否有 start 脚本
+3. .env.example 是否完整
+4. .gitignore 是否包含 .env 和 node_modules
+5. README 是否写清 Render 部署方式
+6. 不要把真实 密钥 写进代码</code></pre>
+</article>
+</section>
+
+<section class="stage">
+  <h2>阶段十二：最终项目价值</h2>
+  <article class="message user">
+<p>现在完全没有问题了！AI 已经成功接入！那接下来我们要怎么做？</p>
+</article>
+<article class="message assistant">
+<p>现在项目已经不是空壳网页了，而是一个真正能交的雏形：</p>
+    <pre><code>本地可运行网页
++ DeepSeek AI 自动识别
++ 作业列表管理
++ 本地 JSON 保存
++ 钉钉 / QQ 接入预留
++ ngrok 公网调试经验
++ Render 部署方案</code></pre>
+    <p>它的教学价值在于：学生不是只让 AI 写一段代码，而是通过对话式 Agent 完成了需求分析、功能拆解、代码生成、报错排查、API 接入、平台对接、部署规划和项目收口。</p>
+</article>
+<article class="message assistant">
+<p>这个案例可以用来展示“AI Agent 辅助创意软件开发”的完整过程：从一个模糊想法开始，不断把问题拆成可执行步骤；遇到报错时不是放弃，而是通过日志、接口、状态页和截图定位问题；最终形成一个能运行、能解释、能迭代的期末项目。</p>
+</article>
+</section>
+
+<section class="stage">
+  <h2>阶段一：切换到新对话框，继续部署期末项目</h2>
+  <article class="message user">
+<p>刚才那个聊天窗太卡了，我们换成这个来继续做项目。现在我已经完成了网页调试，并让 Codex 完成了部署前检查。后续我要怎么办？</p>
+</article>
+<article class="message assistant">
+<p>我们先把目标压住：不新增复杂功能，只做部署前检查、GitHub 上传和 Render 正式部署。当前流程是：</p>
+      <pre><code>本地项目 npm start 正常
+→ 初始化 Git
+→ 推送到 GitHub
+→ Render 连接 GitHub 仓库
+→ 配置环境变量
+→ 部署为正式公网版本</code></pre>
+      <p>同时确认 <code>package.json</code>、<code>.gitignore</code>、<code>process.env.PORT</code> 和环境变量没有问题。</p>
+</article>
+</section>
+
+<section class="stage">
+  <h2>阶段二：GitHub 上传与 GitHub Desktop 推送</h2>
+  <article class="message user">
+<p>Codex 已经回我了，Build Command 是 npm install，Start Command 是 npm start。后面我要干什么？</p>
+</article>
+<article class="message assistant">
+<p>下一步是把本地项目上传到 GitHub。因为终端里运行 <code>git status</code> 显示不是 Git 仓库，所以先初始化 Git：</p>
+      <pre><code>git init
+git add .
+git commit -m "prepare for render deployment"</code></pre>
+      <p>提交成功后，再去 GitHub 创建空仓库 <code>homework-reminder</code>。</p>
+</article>
+<article class="message user">
+<p>GitHub Desktop 登录进去了，现在我该怎么办？</p>
+</article>
+<article class="message assistant">
+<p>不要 clone 空仓库，而是选择：</p>
+      <pre><code>File → Add Local Repository
+选择 node-js-express-1-2-post 项目文件夹
+Add Repository
+Publish branch / Push origin</code></pre>
+      <p>GitHub 网页刷新后能看到 <code>package.json</code>、<code>server.js</code>、<code>public</code> 等文件，说明代码已经成功上传。</p>
+</article>
+</section>
+
+<section class="stage">
+  <h2>阶段三：Render 正式部署与 DeepSeek 环境变量</h2>
+  <article class="message user">
+<p>GitHub 上传成功后，我去 Render 了。现在这个页面该怎么选？</p>
+</article>
+<article class="message assistant">
+<p>你的项目是 Node.js + Express 后端服务，所以选择 <strong>Web Service</strong>，不要选 Static Site。配置如下：</p>
+      <pre><code>Name: homework-reminder
+Runtime: Node
+Branch: main
+Build Command: npm install
+Start Command: npm start
+Plan: Free</code></pre>
+      <p>环境变量先填 DeepSeek 三个：</p>
+      <pre><code>DEEPSEEK_API_KEY=[已隐藏]
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_MODEL=deepseek-chat</code></pre>
+</article>
+<article class="message user">
+<p>Render 显示 homework-reminder is live！我测试 AI 识别，完全识别出来了！</p>
+</article>
+<article class="message assistant">
+<p>这说明已经完成了正式公网闭环：</p>
+      <pre><code>GitHub 上传成功
+Render Web Service 部署成功
+DeepSeek 环境变量生效
+AI 识别功能线上可用</code></pre>
+      <p>之后如果改网站，只要：</p>
+      <pre><code>Codex 改代码
+→ 本地 npm start 测试
+→ GitHub Desktop Commit to main
+→ Push origin
+→ Render 自动重新部署</code></pre>
+</article>
+</section>
+
+<section class="stage">
+  <h2>阶段四：钉钉机器人回调认证与测试</h2>
+  <article class="message user">
+<p>接下来用现在这个 Render 网站去给钉钉认证吗？</p>
+</article>
+<article class="message assistant">
+<p>可以，但不要填首页地址，而是要填代码中专门接收钉钉回调的接口：</p>
+      <pre><code>https://homework-reminder-wm0m.onrender.com/webhook/dingtalk</code></pre>
+      <p>先在浏览器测试，如果显示 <code>dingtalk webhook ok</code>，再填进钉钉后台。</p>
+</article>
+<article class="message user">
+<p>在钉钉填成功了！刷新网页后真的出现了来源平台为钉钉的作业！</p>
+</article>
+<article class="message assistant">
+<p>这说明钉钉闭环完成：</p>
+      <pre><code>钉钉群 @ 作业提醒助手
+→ Render 后端接收回调
+→ AI 识别作业通知
+→ 保存为作业任务
+→ 网页刷新后显示“来源平台：钉钉”</code></pre>
+</article>
+</section>
+
+<section class="stage">
+  <h2>阶段五：QQ 机器人创建、Webhook 接入与签名验证</h2>
+  <article class="message user">
+<p>后面我们来加入 QQ 机器人！</p>
+</article>
+<article class="message assistant">
+<p>QQ 接入比钉钉复杂一些。先新增最小的 <code>/webhook/qq</code>：</p>
+      <pre><code>QQ 消息
+→ QQ 官方 Webhook
+→ Render /webhook/qq
+→ 提取文本
+→ 调用现有 AI 识别逻辑
+→ 保存到统一作业列表
+→ 网页刷新后显示“来源平台：QQ”</code></pre>
+</article>
+<article class="message user">
+<p>QQ 文档里写了 op=13、plain_token、event_ts，这个怎么处理？</p>
+</article>
+<article class="message assistant">
+<p>这是 QQ 的回调地址验证。让 Codex 新增：</p>
+      <pre><code>GET  /webhook/qq
+POST /webhook/qq</code></pre>
+      <p><code>op=13</code> 需要根据 QQ 官方签名算法返回：</p>
+      <pre><code>{
+  "plain_token": plain_token,
+  "signature": signature
+}</code></pre>
+      <p>应用密钥 必须放在 Render 环境变量里，不能写进代码。</p>
+</article>
+<article class="message user">
+<p>QQ 后台校验失败，显示“校验签名失败”。后来重置 应用密钥，在 Render 重新填写 QQ_BOT_SECRET 后配置成功了！</p>
+</article>
+<article class="message assistant">
+<p>这说明最难的 <code>op=13</code> 回调地址验证已经通过。接下来勾选 C2C 私聊消息事件，测试 <code>op=0</code> 真实消息事件。</p>
+</article>
+</section>
+
+<section class="stage">
+  <h2>阶段六：QQ 私聊消息接入、自动回复与重复消息去重</h2>
+  <article class="message user">
+<p>我私聊 QQ 机器人发作业，网站能出现“来源平台：QQ”了！但是我想让它消息转发到网站后回复一句“已转发到网站”。</p>
+</article>
+<article class="message assistant">
+<p>这要在 <code>server.js</code> 的 QQ webhook 代码中实现。处理成功后调用 QQ 发送消息接口回复：</p>
+      <pre><code>已转发到作业网站，请刷新网页查看。</code></pre>
+      <p>回复失败也不能影响作业保存，后端仍然返回 200。</p>
+</article>
+<article class="message user">
+<p>第一次发消息刷新之后出现了两条作业通知，我又刷新一下变成四条了！</p>
+</article>
+<article class="message assistant">
+<p>这是 QQ Webhook 重试导致同一事件被重复处理。修复方案是增加事件去重和快速 ACK：</p>
+      <pre><code>优先使用 payload.id 作为事件唯一 ID
+如果重复事件，不调用 AI，不保存作业，直接返回 200
+保留最近 1000 条或 10 分钟内已处理事件 ID</code></pre>
+</article>
+</section>
+
+<section class="stage">
+  <h2>阶段七：删除演示痕迹与 UI 极简风格重构</h2>
+  <article class="message user">
+<p>在上传之前，我们再优化一下界面吧。我想把初始的三个演示作业删除，再把下面“平台消息接入测试”界面删除，只默默运行，不要出现在网页上。</p>
+</article>
+<article class="message assistant">
+<p>这属于展示前收尾：删除演示作业，隐藏底部测试区，但保留后端接口：</p>
+      <pre><code>POST /webhook/dingtalk
+POST /webhook/qq
+GET  /webhook/dingtalk
+GET  /webhook/qq</code></pre>
+</article>
+<article class="message user">
+<p>我想参考一张极简主义风格图，大改 UI，不要只是换颜色。</p>
+</article>
+<article class="message assistant">
+<p>根据参考图，UI 方向改为：</p>
+      <pre><code>大量留白
+黑白灰
+细线分隔
+少量状态色
+任务列表横向三栏
+按钮保持清晰可点击
+不使用厚重蓝色后台风</code></pre>
+</article>
+</section>
+
+<section class="stage">
+  <h2>阶段八：任务规划与提醒模块</h2>
+  <article class="message user">
+<p>我们现在再来做这个功能：任务规划与提醒模块。它可以根据截止时间排序，即将截止的作业通过站内提醒、手机通知等方式提醒。进一步根据作业复杂度判断优先级。</p>
+</article>
+<article class="message assistant">
+<p>先做站内任务规划，不直接做复杂手机推送。第一阶段目标：</p>
+      <pre><code>按截止时间排序
+显示紧急程度
+根据作业复杂度判断提醒提前量
+在页面顶部展示 1-3 条最需要优先处理的任务</code></pre>
+</article>
+<article class="message user">
+<p>为什么教育学原理是下周三交，美术是本周四，这个排序却不对？</p>
+</article>
+<article class="message assistant">
+<p>原因是中文相对日期解析不完整。需要新增 <code>deadlineAt</code> 字段，把自然语言截止时间换算为具体时间点：</p>
+      <pre><code>deadline: 本周四
+deadlineAt: 2026-06-18T23:59:00+08:00</code></pre>
+</article>
+</section>
+
+<section class="stage">
+  <h2>阶段九：DDL 展示、复杂度标签与最终展示状态</h2>
+  <article class="message user">
+<p>我想把“复杂”标志从绿色换成红色，把“换算：2026-06-18 23:59”改成“具体：2026-06-18 23:59”。有没有办法强化 DDL 展示？</p>
+</article>
+<article class="message assistant">
+<p>建议只做克制的 DDL 强化，不新增花哨模块：</p>
+      <pre><code>复杂标签：低饱和红色
+换算：改为“具体：”
+DDL：在作业下方加轻量倒计时提示</code></pre>
+      <p>后来讨论发现整条红色背景太重，于是调整为只保留当前更好看的版本，不继续大改，避免破坏排版。</p>
+</article>
+<article class="message assistant">
+<p>最终项目具备：</p>
+      <pre><code>Web 端手动添加作业
+DeepSeek AI 识别作业通知
+钉钉机器人回调接入
+QQ 机器人私聊接入
+QQ 处理成功自动回复
+QQ 重复消息去重
+统一作业列表
+任务规划与提醒
+deadlineAt 具体时间换算
+复杂度和优先级判断
+极简 UI</code></pre>
+</article>
+</section>
+
+<section class="stage">
+  <h2>阶段一：项目结构检查与部署准备</h2>
+  <article class="message user">
+<p>我已经确认项目里有 .gitignore，里面包含 .env 和 node_modules/。现在请继续做 Render 部署前最后检查。</p>
+    <p>确认 package.json 的 start、server.js 是否使用 process.env.PORT，检查是否有硬编码密钥，并列出 Render 需要配置的环境变量。</p>
+</article>
+<article class="message assistant codex">
+<p>我先检查部署入口、端口、环境变量和敏感信息，不新增功能、不改 UI。</p>
+    <pre class="terminal"><code>package.json scripts:
+"start": "node server.js"
+
+server.js:
+const PORT = process.env.PORT || 3000
+检查结果：项目适合 Render 部署，入口文件和 start 命令一致；端口使用 Render 要求的 process.env.PORT；未发现真实 密钥、令牌、Secret 写死在代码中。
+Render 配置建议：
+Build Command: npm install
+Start Command: npm start
+
+Environment Variables:
+DEEPSEEK_API_KEY
+DEEPSEEK_BASE_URL
+DEEPSEEK_MODEL
+DINGTALK_CLIENT_ID
+DINGTALK_CLIENT_SECRET
+QQ_BOT_APP_ID
+QQ_BOT_SECRET</code></pre>
+</article>
+</section>
+
+<section class="stage">
+  <h2>阶段二：DeepSeek 环境变量与 AI 识别接入</h2>
+  <article class="message user">
+<p>我现在要把 DeepSeek API 接入当前项目，用真实大模型替代本地规则识别。先只做基础接入准备，不要改页面样式。</p>
+</article>
+<article class="message assistant codex">
+<p>我安装并接入了 <code>dotenv</code>，让项目启动时读取 <code>.env</code>。同时新增 <code>.env.example</code>，不把真实密钥写入代码。</p>
+    <pre><code>DEEPSEEK_API_KEY=[已隐藏]
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_MODEL=deepseek-chat</code></pre>
+    <p>后端保留本地规则识别作为备用方案。如果没有配置 <code>DEEPSEEK_API_KEY</code>，项目仍然能正常运行。</p>
+</article>
+<article class="message user">
+<p>请检查当前 server.js 里的 callAIParser 是否真的调用了 DeepSeek API。调用时终端输出 Using DeepSeek API parser，失败时输出原因，回退本地时输出 Using local fallback parser。</p>
+</article>
+<article class="message assistant codex">
+<p>我补上了真实请求逻辑：<code>callAIParser(messageText, platform)</code> 会请求 DeepSeek Chat Completions 接口，并要求模型只返回 JSON 数组。</p>
+    <pre><code>async function callAIParser(messageText, platform) {
+  const deepSeekApiKey = process.env.DEEPSEEK_API_KEY;
+
+if (!deepSeekApiKey) {
+console.log(‘Using local fallback parser’);
+return builtInAIParser(messageText, platform);
+}
+
+try {
+console.log(‘Using DeepSeek API parser’);
+// request DeepSeek API…
+} catch (error) {
+console.error(DeepSeek API parser failed: ${error.message});
+console.log(‘Using local fallback parser’);
+return builtInAIParser(messageText, platform);
+}
+}
+我没有输出 密钥，失败日志只包含错误原因。</code></pre>
+</article>
+</section>
+
+<section class="stage">
+  <h2>阶段三：钉钉 webhook 与 Stream 模式选择</h2>
+  <article class="message user">
+<p>请检查当前项目里钉钉相关的 HTTP 回调接口路径是什么。我的 Render 域名是 https://homework-reminder-wm0m.onrender.com。</p>
+</article>
+<article class="message assistant codex">
+<p>钉钉 HTTP 回调接口在当前代码里的路径是：</p>
+    <pre><code>/webhook/dingtalk</code></pre>
+    <p>所以 Render 公网完整回调地址应该填写：</p>
+    <pre><code>https://homework-reminder-wm0m.onrender.com/webhook/dingtalk</code></pre>
+    <p>当前代码同时支持：</p>
+    <pre><code>GET  /webhook/dingtalk
+POST /webhook/dingtalk</code></pre>
+</article>
+<article class="message user">
+<p>钉钉 HTTP 模式发布失败，提示消息接收地址校验失败。我决定放弃 HTTP 模式，改用钉钉官方推荐的 Stream 模式。</p>
+</article>
+<article class="message assistant codex">
+<p>我保留了原有 <code>/webhook/dingtalk</code> 作为本地测试接口，同时新增了 <code>dingtalk-stream.js</code>，用钉钉 Stream SDK 接收机器人消息。</p>
+    <pre><code>npm run dingtalk-stream</code></pre>
+    <p>Stream 模式从环境变量读取：</p>
+    <pre><code>DINGTALK_CLIENT_ID=[已隐藏]
+DINGTALK_CLIENT_SECRET=[已隐藏]</code></pre>
+    <p>收到消息后流程保持一致：提取文本 → 调用 <code>callAIParser</code> → 保存到 <code>data/homeworks.json</code>。</p>
+</article>
+</section>
+
+<section class="stage">
+  <h2>阶段四：QQ webhook 接入与验证</h2>
+  <article class="message user">
+<p>请在当前 Node.js + Express 项目中新增 QQ 官方机器人 Webhook 接入，先做最小可用版本，不要影响现有钉钉和 Web 功能。</p>
+    <p>QQ Webhook op=13 表示回调地址验证，op=0 表示真实事件推送。</p>
+</article>
+<article class="message assistant codex">
+<p>我新增了 <code>GET /webhook/qq</code> 和 <code>POST /webhook/qq</code>。</p>
+    <pre><code>GET /webhook/qq  => qq webhook ok
+POST /webhook/qq => QQ 官方平台回调</code></pre>
+    <p>QQ 事件进入后复用现有保存链路：</p>
+    <pre><code>QQ payload
+  -> extractQQMessageText(payload)
+  -> parseAndSaveHomework('QQ', messageText)
+  -> callAIParser(messageText, 'QQ')
+  -> writeHomeworks(homeworks)</code></pre>
+    <p>这保证 QQ 消息和钉钉消息最终都进入同一个统一作业列表。</p>
+</article>
+<article class="message user">
+<p>QQ 后台配置回调地址时显示“校验签名失败”。请严格按照 QQ 官方文档修复 op=13 回调地址验证签名算法。</p>
+</article>
+<article class="message assistant codex">
+<p>我修复了 <code>op=13</code> 签名算法：使用 <code>QQ_BOT_SECRET</code> 作为 botSecret，重复拼接到至少 32 字节，截取前 32 字节作为 Ed25519 seed，对 <code>event_ts + plain_token</code> 签名。</p>
+    <pre><code>function createQQValidationSignature(plain令牌, eventTs) {
+  const secretBuffer = Buffer.from(String(process.env.QQ_BOT_SECRET), 'utf8');
+
+const seedParts = [];
+let seedLength = 0;
+while (seedLength < 32) {
+seedParts.push(secretBuffer);
+seedLength += secretBuffer.length;
+}
+
+const seed = Buffer.concat(seedParts).subarray(0, 32);
+// create ed25519 private key and sign event_ts + plain_token
+}
+响应格式严格为：
+{
+“plain_token”: “plain_token”,
+“signature”: “hex_signature”
+}
+node -c server.js
+
+语法检查通过</code></pre>
+</article>
+</section>
+
+<section class="stage">
+  <h2>阶段五：QQ 消息处理成功后自动回复</h2>
+  <article class="message user">
+<p>请在当前 QQ webhook 逻辑中增加“处理成功后回复用户”的功能。当 QQ 用户私聊机器人发送作业通知，后端成功识别并保存后，机器人自动回复：已转发到作业网站，请刷新网页查看。</p>
+</article>
+<article class="message assistant codex">
+<p>我在 QQ <code>op=0</code> 消息保存成功后增加了单聊回复逻辑。回复失败不会影响作业保存，也不会导致 webhook 返回 500。</p>
+    <pre><code>async function tryReplyQQSuccess(payload) {
+  try {
+    await replyQQPrivateMessage(payload, '已转发到作业网站，请刷新网页查看。');
+    console.log('QQ reply success');
+  } catch (error) {
+    console.error(`QQ reply failed: ${error.message}`);
+  }
+}</code></pre>
+    <p>发送回复前会使用 <code>QQ_BOT_APP_ID</code> 和 <code>QQ_BOT_SECRET</code> 获取 access_token。日志不会打印 应用密钥。</p>
+</article>
+</section>
+
+<section class="stage">
+  <h2>阶段六：QQ 重复事件去重</h2>
+  <article class="message user">
+<p>QQ 私聊机器人消息已经能进入网站，但出现重复保存问题：同一条 QQ 消息第一次刷新出现 2 条，再刷新后变成 4 条。请修复 QQ webhook 的重复处理问题。</p>
+</article>
+<article class="message assistant codex">
+<p>我给 QQ <code>op=0</code> 事件增加了内存去重机制，优先使用 <code>payload.id</code> 作为事件唯一 ID，其次使用 <code>d.id / d.msg_id / d.event_id / d.message_id</code>，最后用 <code>JSON.stringify(payload.d)</code> 的 hash。</p>
+    <pre><code>const QQ_EVENT_TTL_MS = 10 * 60 * 1000;
+const QQ_EVENT_MAX_SIZE = 1000;
+const processedQqEvents = new Map();
+
+function markQQEventProcessing(eventId) {
+pruneProcessedQQEvents();
+
+if (processedQqEvents.has(eventId)) {
+return true;
+}
+
+processedQqEvents.set(eventId, Date.now());
+return false;
+}
+如果检测到重复事件：
+{
+“op”: 12
+}
+重复事件不会再次调用 AI，也不会再次保存作业。
+node -c server.js
+
+检查通过</code></pre>
+</article>
+</section>
+
+<section class="stage">
+  <h2>阶段七：删除演示数据与测试入口</h2>
+  <article class="message user">
+<p>请对当前项目做展示前界面收尾：删除网页初始的三个演示作业数据，并隐藏底部“平台消息接入测试 / WEBHOOK INTAKE”区域。</p>
+</article>
+<article class="message assistant codex">
+<p>我清空了 <code>data/homeworks.json</code>，保留合法 JSON 结构：</p>
+    <pre><code>[]</code></pre>
+    <p>同时从 <code>public/index.html</code> 中移除了底部测试区，包括钉钉通知测试框、QQ 通知测试框和两个发送按钮。</p>
+    <p>后端接口仍然保留：</p>
+    <pre><code>GET  /webhook/dingtalk
+POST /webhook/dingtalk
+GET  /webhook/qq
+POST /webhook/qq</code></pre>
+</article>
+</section>
+
+<section class="stage">
+  <h2>阶段八：极简 UI 风格重构</h2>
+  <article class="message user">
+<p>请根据我提供的“极简主义作业管理 UI 参考图”重构当前网站前端界面。不要只是换颜色，要大幅调整布局、间距、卡片结构、按钮样式和信息层级。</p>
+</article>
+<article class="message assistant codex">
+<p>我把页面从后台管理系统风格重构为极简展示页风格，只修改前端文件：</p>
+    <pre><code>public/index.html
+public/style.css
+public/script.js</code></pre>
+    <p>主要变化：</p>
+    <ul>
+      <li>页面最大宽度 1120px，居中显示。</li>
+      <li>背景改为接近白色，去掉蓝色、渐变和厚重阴影。</li>
+      <li>顶部增加 HOMEWORK 标识、数据已保存状态和极简菜单按钮。</li>
+      <li>统计区改成横向细线分隔数据栏。</li>
+      <li>作业列表从厚卡片改成三栏横向行列表。</li>
+      <li>原始通知改成左侧黑线引用样式。</li>
+      <li>按钮统一为黑色主按钮、线框次级按钮、红色危险按钮。</li>
+      <li>手动添加区改成左右两列极简表单。</li>
+    </ul>
+</article>
+</section>
+
+<section class="stage">
+  <h2>阶段九：任务规划与站内提醒模块</h2>
+  <article class="message user">
+<p>请在当前作业提醒网站中新增“任务规划与提醒模块”，先做站内提醒版本，不做复杂手机推送，不影响现有 QQ、钉钉、AI 识别、数据保存逻辑。</p>
+</article>
+<article class="message assistant codex">
+<p>我在前端新增了“PLANNING / 任务规划与提醒”模块，基于已有作业字段进行运行时计算，不写入新的数据库。</p>
+    <p>新增前端派生字段：</p>
+    <pre><code>complexity: simple | medium | complex
+complexityLabel: 简单 | 中等 | 复杂
+reminderLeadDays: 1 | 2 | 4
+urgency: overdue | today | tomorrow | soon | normal | unknown
+deadlineAt: ISO 字符串
+deadlineTimestamp: number</code></pre>
+    <p>站内提醒使用 <code>localStorage</code> 记录是否开启和当天是否已经提醒，避免刷新一次提醒一次。</p>
+    <p>没有实现手机系统级推送，因为 Notification API、Service Worker 和 Push API 会显著增加复杂度，适合作为后续优化。</p>
+</article>
+</section>
+
+<section class="stage">
+  <h2>阶段十：deadlineAt 截止时间换算</h2>
+  <article class="message user">
+<p>现在任务规划排序有 bug：“下周三晚上八点”被识别成“明天截止”，“本周四”被识别成“待确认”。请修复中文相对日期解析函数。</p>
+</article>
+<article class="message assistant codex">
+<p>问题根源是旧正则没有正确识别“本周四 / 下周三”这种格式，导致带时间的文本退化成“今天某个时间”。我重写了中文相对日期解析：</p>
+    <pre><code>支持：
+今天
+明天
+后天
+本周一 / 本周二 / ... / 本周日
+这周一 / 这周二 / ... / 这周日
+下周一 / 下周二 / ... / 下周日
+下星期一 / 下星期二 / ... / 下星期日
+6月18日 / 6月18号
+2026年6月18日
+上午八点 / 中午12点 / 下午三点 / 晚上八点 / 18:00</code></pre>
+    <p>页面现在同时显示原始截止时间和换算结果：</p>
+    <pre><code>截止：本周四
+换算：2026-06-18 23:59</code></pre>
+    <pre class="terminal"><code>测试样例：
+本周四               -> 2026-06-18 23:59
+下周三晚上八点       -> 2026-06-24 20:00
+本周五18:00前        -> 2026-06-19 18:00
+下周一中午12点       -> 2026-06-22 12:00
+今天晚上8点          -> 2026-06-16 20:00
+明天中午12点         -> 2026-06-17 12:00</code></pre>
+</article>
+</section>
+
+<section class="stage">
+  <h2>阶段十一：DDL、复杂度与优先级逻辑优化</h2>
+  <article class="message user">
+<p>现在任务规划与提醒模块逻辑需要调整。美术基础课作业截止时间是“本周四”，已换算为 2026-06-18 23:59，但没有进入任务规划提醒。这条作业包含 8 张作业、色相环、明度渐变色阶、色调、调和色、对比色，应判定为复杂任务，并提前提醒。</p>
+</article>
+<article class="message assistant codex">
+<p>我优化了复杂度判断和任务规划 score 机制。美术类作业中的关键词会被判定为复杂任务：</p>
+    <pre><code>作品、绘画、色相环、明度、色阶、色调、调和色、对比色、图片、8张、八张、作品集</code></pre>
+    <p>新的规划排序 score：</p>
+    <pre><code>overdue: 100
+today: 90
+tomorrow: 80
+complex 且已进入提醒期: 70
+medium 且已进入提醒期: 60
+simple 且已进入提醒期: 50
+deadlineAt 不可解析且状态为待确认: 40
+可解析但未进入提醒期: 30
+已完成: 不进入任务规划</code></pre>
+    <p>美术基础课测试结果：</p>
+    <pre class="terminal"><code>美术基础课
+deadline: 本周四
+deadlineAt: 2026-06-18 23:59
+complexity: 复杂
+urgency: 建议开始
+score: 70
+advice: 这项作业包含多项作品提交，建议提前开始准备。</code></pre>
+    <p>教育学原理 <code>下周三晚上八点</code> 会按真实 deadlineAt 排在美术基础课之后。待确认任务如果有 deadlineAt，也会进入规划；已完成作业不会进入规划。</p>
+</article>
+</section>
+
+<section class="stage">
+  <h2>阶段十二：测试、限制与交付状态</h2>
+  <article class="message user">
+<p>修改后运行 npm start，确认页面正常。不要 git commit，不要 git push。</p>
+</article>
+<article class="message assistant codex">
+<p>我运行了语法检查：</p>
+    <pre class="terminal"><code>node -c public/script.js
+node -c server.js
+# 均通过</code></pre>
+    <p>在当前 Codex 沙箱中执行 <code>npm start</code> 时，系统不允许监听本地端口，返回：</p>
+    <pre class="terminal"><code>Error: listen EPERM: operation not permitted 0.0.0.0:3000</code></pre>
+    <p>这个错误来自沙箱端口权限，不是代码语法问题。用户在本机终端正常运行 <code>npm start</code> 即可预览。</p>
+    <p>整个过程中没有执行 git commit，也没有 git push。</p>
+</article>
+</section>
+    <section class="summary">
+      <h2>总结</h2>
+      <p>本材料展示了一个学生如何通过 ChatGPT 与 Codex 这类 Agent，从模糊想法出发，逐步完成需求分析、功能拆解、代码实现、API 接入、机器人平台调试、云端部署、UI 优化和项目收口。它不是单次“让 AI 写代码”，而是一个持续对话、迭代修复、共同完成软件作品的真实过程。</p>
+    </section>
+  </main>
+</body>
+</html>
